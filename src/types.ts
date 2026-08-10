@@ -17,9 +17,14 @@ export type Severity = 'error' | 'warn';
 export type Scope = 'raw' | 'strings' | 'markup';
 
 export interface FixContext {
-  /** The enclosing chunk's raw source slice, or the line for `raw`. */
+  /** The enclosing literal for `strings` and `markup`, the enclosing sentence for `raw`. */
   container: string;
   match: string;
+  /**
+   * Where `match` starts inside `container`. Needed because a container may hold the same
+   * text twice, and a fix that searched for it would answer for the wrong occurrence.
+   */
+  index: number;
   scope: Scope;
 }
 
@@ -74,9 +79,10 @@ export interface Chunk {
   end: number;
   /**
    * What `FixContext.container` should be for matches in this chunk. `'self'` means the
-   * chunk's own slice; `'line'` means the enclosing line.
+   * chunk's own slice; `'sentence'` means the enclosing sentence, which is the unit a
+   * prose fix has to decide from once the prose is hard-wrapped.
    */
-  container: 'self' | 'line';
+  container: 'self' | 'sentence';
 }
 
 export interface ExtractorOptions {

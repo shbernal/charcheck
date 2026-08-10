@@ -225,9 +225,14 @@ describe('fixes', () => {
     expect(result).toBe(`${BYTE_ORDER_MARK}a - b\r\nsecond\r\n`);
   });
 
-  it('passes the enclosing line as the fix context for a raw rule', async () => {
-    const seen: string[] = [];
-    const text = `first line\nsecond ${EM_DASH} line\n`;
+  /**
+   * The sentence, not the line. Hard-wrapped prose is the normal case in a repository, and
+   * a line is a typographic accident: the two halves of an aside routinely land on
+   * different ones.
+   */
+  it('passes the enclosing sentence as the fix context for a raw rule', async () => {
+    const seen: { container: string; index: number }[] = [];
+    const text = `A first sentence. A wrapped one\nholding ${EM_DASH} a dash. A third.\n`;
     await scanText(
       text,
       'a.md',
@@ -235,13 +240,34 @@ describe('fixes', () => {
         rule({
           id: 'context',
           fix: (ctx) => {
-            seen.push(ctx.container);
+            seen.push({ container: ctx.container, index: ctx.index });
             return '';
           },
         }),
       ],
       { assumeText: true },
     );
-    expect(seen).toEqual([`second ${EM_DASH} line`]);
+    expect(seen).toEqual([{ container: `A wrapped one\nholding ${EM_DASH} a dash.`, index: 22 }]);
+    expect(seen[0]!.container[seen[0]!.index]).toBe(EM_DASH);
+  });
+
+  it('locates each match inside a container that holds several', async () => {
+    const seen: number[] = [];
+    const text = `one ${EM_DASH} two ${EM_DASH} three.\n`;
+    await scanText(
+      text,
+      'a.md',
+      [
+        rule({
+          id: 'context',
+          fix: (ctx) => {
+            seen.push(ctx.index);
+            return '';
+          },
+        }),
+      ],
+      { assumeText: true },
+    );
+    expect(seen).toEqual([4, 10]);
   });
 });

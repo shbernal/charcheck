@@ -1,8 +1,10 @@
 import { BYTE_ORDER_MARK, describeChars } from './chars.js';
-import { buildLineIndex, lineTextAt, positionAt } from './position.js';
+import { buildLineIndex, positionAt } from './position.js';
 import type { LineIndex } from './position.js';
 import { compileRule } from './rule.js';
 import type { CompiledRule } from './rule.js';
+import { buildSentenceIndex, sentenceAt } from './sentence.js';
+import type { SentenceIndex } from './sentence.js';
 import { getExtractor } from './scope/index.js';
 import { isSuppressed, parseSuppressions } from './suppress.js';
 import type { Suppressions } from './suppress.js';
@@ -49,10 +51,11 @@ function resolveReplacement(
   rule: CompiledRule,
   match: string,
   container: string,
+  index: number,
 ): string | undefined {
   if (rule.fix === undefined) return undefined;
   if (typeof rule.fix === 'string') return rule.fix;
-  return rule.fix({ container, match, scope: rule.scope });
+  return rule.fix({ container, match, index, scope: rule.scope });
 }
 
 /**
@@ -78,6 +81,8 @@ export async function scanText(
 
   let lineIndex: LineIndex | undefined;
   const lines = (): LineIndex => (lineIndex ??= buildLineIndex(source));
+  let sentenceIndex: SentenceIndex | undefined;
+  const sentences = (): SentenceIndex => (sentenceIndex ??= buildSentenceIndex(source));
   let suppressions: Suppressions | undefined;
   const suppressed = (ruleId: string, line: number): boolean => {
     suppressions ??= parseSuppressions(source, file);
@@ -97,7 +102,7 @@ export async function scanText(
     const chunks = await getExtractor(compiled.scope)(source, file, extractorOptions);
 
     for (const chunk of chunks) {
-      collectInChunk(chunk, compiled, source, file, findings, lines, suppressed);
+      collectInChunk(chunk, compiled, source, file, findings, lines, sentences, suppressed);
     }
   }
 
@@ -112,6 +117,7 @@ function collectInChunk(
   file: string,
   findings: Finding[],
   lines: () => LineIndex,
+  sentences: () => SentenceIndex,
   suppressed: (ruleId: string, line: number) => boolean,
 ): void {
   const { regex } = rule;
@@ -138,11 +144,11 @@ function collectInChunk(
     const { line, column } = positionAt(lines(), start);
     if (suppressed(rule.id, line)) continue;
 
-    const container =
+    const enclosing =
       chunk.container === 'self'
-        ? source.slice(chunk.start, chunk.end)
-        : lineTextAt(lines(), start);
-    const replacement = resolveReplacement(rule, matched, container);
+        ? { text: source.slice(chunk.start, chunk.end), start: chunk.start }
+        : sentenceAt(sentences(), start);
+    const replacement = resolveReplacement(rule, matched, enclosing.text, start - enclosing.start);
 
     findings.push({
       ruleId: rule.id,

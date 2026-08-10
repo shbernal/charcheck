@@ -30,6 +30,19 @@ While the version stays below 0.1.0, anything may change in any release.
 
 ### Changed
 
+- **Breaking.** A `raw` rule's fix now receives the enclosing **sentence** as
+  `FixContext.container`, where it used to receive the enclosing line. Prose in a repository
+  is hard-wrapped, so the two halves of an aside routinely sit on different lines, and a fix
+  seeing one half of a dash pair turned both into colons. Measured over one real site, the
+  line as the unit got 36% of `clauseSeparator`'s replacements wrong. The paragraph is not
+  the unit either: consecutive list items are one paragraph, and a dash in each is not a
+  pair. `Chunk.container` is now `'self' | 'sentence'`; `'line'` is gone.
+- **Breaking.** `FixContext` gained `index`, the offset of `match` inside `container`. A fix
+  that searched its container for the match answered for the first occurrence rather than
+  the one being replaced, which is wrong whenever a sentence holds two.
+- `clauseSeparator` now writes a comma rather than a colon when the dash is followed by a
+  conjunction, since a colon in front of one is never grammatical. A dash between `made of`
+  and `and what` has to become a comma.
 - `UnsupportedPeerDependencyError` from the `strings` scope now means a `typescript` with
   neither a parser nor a scanner, rather than any TypeScript 7. Its stated range widened
   from `>=5 <7` to `>=5`, matching the peer range.
