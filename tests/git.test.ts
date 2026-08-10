@@ -65,6 +65,11 @@ beforeAll(async () => {
   await git('config', 'user.name', 'charcheck tests');
   await git('config', 'core.autocrlf', 'false');
   await git('config', 'commit.gpgsign', 'false');
+  // A global `core.hooksPath` would otherwise apply here, and someone's hooks are not this
+  // suite's to run. They also make the commits below arbitrarily slow: a hook that shells
+  // out looking for a tool it cannot find can cost seconds apiece, which is enough to blow
+  // this hook's timeout. Point at a directory that will never exist.
+  await git('config', 'core.hooksPath', path.join(root, '.git', 'no-hooks'));
 
   await write('charcheck.config.json', CONFIG);
   await write('docs/baseline.md', 'clean baseline\n');
