@@ -1,0 +1,99 @@
+# Contributing
+
+Bug reports, questions and pull requests are all welcome. This is a small tool with a
+narrow purpose, so the fastest way to get a change merged is to keep it inside that purpose.
+
+## Setup
+
+```bash
+corepack enable
+pnpm install
+```
+
+Node 24 or newer, and pnpm through Corepack. The node floor buys native type stripping,
+which is what lets a user's `charcheck.config.ts` load with no bundler and no loader.
+
+## The one gate
+
+```bash
+pnpm run check
+```
+
+That runs typecheck, lint, format, tests, build, and then charcheck over this repo, in that
+order. The build sits in the middle because the self-check runs the freshly built binary.
+CI runs exactly this on Linux, Windows and macOS. If it passes locally it should pass there.
+
+Individually: `pnpm run typecheck`, `pnpm run lint`, `pnpm run format` (check only, use
+`pnpm exec oxfmt` to fix), `pnpm test`, `pnpm run build`, `pnpm run lint:chars`.
+
+Lint is [oxlint](https://oxc.rs/) and formatting is oxfmt. oxfmt covers JavaScript,
+TypeScript and Markdown, so the docs and this file are machine formatted; do not hand-align
+a Markdown table, it will be rewritten. JSON and YAML are not covered. Keep those tidy by
+hand.
+
+To run this repo's own hooks, which is how the git modes get exercised:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+A global `core.hooksPath` may already point elsewhere, in which case `.git/hooks` is ignored
+and hooks appear not to run at all.
+
+## `node src/cli.ts` does not work
+
+Type stripping does not rewrite a `.js` specifier to the `.ts` file next to it, and every
+internal import ends in `.js` as TypeScript requires. Iterate through `pnpm run build` or
+through vitest.
+
+## The dogfooding rule, which catches everyone once
+
+charcheck bans characters, em dashes above all, and this repo runs charcheck on itself.
+Anything you write here is subject to its own rules, including the README, the docs, and
+test names. Two consequences:
+
+- Test fixtures deliberately contain banned characters. They are excluded from the
+  self-check. Keep them under `tests/fixtures/` so the exclusion keeps working.
+- When a banned character must appear in real source (a rule definition, a doc example),
+  name it through `src/chars.ts`, which builds each one from its code point, or use a
+  suppression comment, so the file can still be read by the tool it configures. Do not paste
+  the character itself.
+
+A related trap: charcheck cannot tell a suppression marker in a comment from the same words
+in prose. Writing the file-level marker into a document suppresses that whole document,
+silently. Markers inside fenced Markdown code blocks are ignored for exactly this reason,
+which is how the docs show the syntax and still get checked.
+
+## Pull requests
+
+- One concern per pull request.
+- Add or update tests. The suite is vitest under `tests/`.
+- Update `docs/` when behavior, config, or the CLI changes, and add a line to
+  `CHANGELOG.md` under `Unreleased`.
+- Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/).
+
+## Design decisions that are settled
+
+Not closed forever, but reopening one needs a reason beyond preference:
+
+- **A scope is an extractor, not a branch.** Every scope returns the regions of a file its
+  rules may match inside, and the scanner has no per-scope code. Adding a surface is a new
+  file in `src/scope/` plus one table entry.
+- **Fixes are per rule and may be functions**, because whether a replacement is safe depends
+  on the surface. A finding therefore carries its resolved `replacement`.
+- **Positions are 1-based UTF-16 code units**, matching ESLint and the language server
+  protocol, so a reported column agrees with an editor's cursor.
+- **`--staged` reads the index, never the working tree.** A hook that reports a violation
+  the commit does not contain is a hook people disable.
+- **A commit message is masked, not trimmed.** Ignorable text becomes spaces so the file
+  keeps its length and positions still point at the line the author typed.
+- **Core ships no vocabulary opinions.** This tool is about characters.
+
+## Adding a scope
+
+The most likely contribution. A new surface is a new file in `src/scope/` exporting an
+extractor, one entry in the scope table, an optional peer dependency declared in
+`package.json` and imported lazily (never at module top level), fixtures under
+`tests/fixtures/`, and a row in the table in `docs/scopes.md`.
+
+Svelte and plain HTML are the two openly wanted ones. See [Limitations](docs/limitations.md).

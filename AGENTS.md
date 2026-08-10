@@ -2,7 +2,7 @@
 
 ## Pre-Release Project Guidance
 
-This project has no GitHub release yet:
+This project is published but still below 0.1.0:
 
 - Treat the project as pre-release and free to change.
 - Do not preserve backwards compatibility unless Santiago explicitly asks for it.
@@ -10,81 +10,42 @@ This project has no GitHub release yet:
 - Existing code, docs, and plans are context, not constraints.
 - Prefer the simplest coherent architecture for the current project direction.
 
-Once the project has a GitHub release, compatibility and migration concerns become real
-project constraints and must be evaluated before breaking changes.
+Once the project reaches 1.0, compatibility and migration concerns become real project
+constraints and must be evaluated before breaking changes. Until then, note breaking
+changes in `CHANGELOG.md` rather than working around them.
 
-## Commands
+## Read this first
+
+[CONTRIBUTING.md](CONTRIBUTING.md) holds the setup, the single `pnpm run check` gate, the
+`node src/cli.ts` trap, the dogfooding rule, and the settled design decisions. It is the
+same information a human contributor gets, so it is maintained rather than duplicated here.
+
+The short version:
 
 ```bash
 pnpm install
 pnpm run check       # the single gate before any commit
 ```
 
-`check` runs typecheck, lint, format, tests, build, and then charcheck over this repo. The
-build is in the middle because `lint:chars` runs the freshly built binary.
+Two traps that cost the most time when hit:
 
-Individually: `pnpm run typecheck`, `pnpm run lint`, `pnpm run format` (check only, use
-`pnpm exec oxfmt` to fix), `pnpm test`, `pnpm run build`, `pnpm run lint:chars`.
-
-Lint is oxlint (`.oxlintrc.json`) and formatting is oxfmt (`.oxfmtrc.json`). Note that oxfmt
-formats JavaScript and TypeScript only, so Markdown, JSON and YAML in this repo are not
-machine formatted; keep them tidy by hand.
-
-Node `>=24` and pnpm via Corepack. The node floor is deliberate: it buys native type
-stripping, which is what lets a user's `charcheck.config.ts` load with no bundler and no
-loader.
-
-Note that `node src/cli.ts` does **not** work. Type stripping does not rewrite a `.js`
-specifier to the `.ts` file next to it, and every internal import ends in `.js` as
-TypeScript requires. Iterate through `pnpm run build` or vitest.
-
-To run this repo's own hooks (recommended, they are how the git modes get exercised):
-
-```bash
-git config core.hooksPath .githooks
-```
-
-A global `core.hooksPath` may already point elsewhere, in which case `.git/hooks` is
-ignored and hooks appear not to run at all.
-
-## Dogfooding warning
-
-charcheck bans characters, em dashes above all, and this repo runs charcheck on itself.
-Anything you write here is subject to its own rules, including this file, the README, and
-test names. Two consequences:
-
-- Test fixtures deliberately contain banned characters. They are excluded from the
-  self-check; keep them under `tests/fixtures/` so the exclusion keeps working.
-- When a banned character must appear in real source (a rule definition, a doc example),
-  name it through `src/chars.ts`, which builds each one from its code point, or use a
-  suppression comment, so the file can still be read by the tool it configures. Do not
-  paste the character itself.
-
-A related trap: charcheck cannot tell a suppression marker in a comment from the same words
-in prose. Writing the file-level marker into a document suppresses that whole document,
-silently. Markers inside fenced Markdown code blocks are ignored for exactly this reason,
-which is how the README documents the syntax and still gets checked.
+- **`node src/cli.ts` does not work.** Type stripping does not rewrite a `.js` specifier to
+  the `.ts` file beside it. Iterate through `pnpm run build` or vitest.
+- **This repo runs charcheck on itself.** Do not paste a banned character into any file the
+  self-check reads, including this one. Build it from its code point through `src/chars.ts`,
+  or write it as an escape inside a fenced code block.
 
 ## Layout
 
 - `src/` sources, `dist/` build output, `tests/` vitest suites and fixtures.
+- `docs/` is the user-facing reference. Update it when behavior, config, or the CLI changes.
 - Optional peer dependencies (`typescript`, `@vue/compiler-sfc`) are imported lazily and
   only when a rule uses the scope that needs them. Never import them at module top level.
 
-## Decisions worth not relitigating
+## Where documentation goes
 
-- **A scope is an extractor, not a branch.** Every scope returns the regions of a file its
-  rules may match inside, and the scanner has no per-scope code. Adding a surface is a new
-  file in `src/scope/` plus one table entry.
-- **Fixes are per rule and may be functions**, because whether a replacement is safe
-  depends on the surface. A finding therefore carries its resolved `replacement`: a
-  contextual fix reads the text around its match, and that context is gone by the time the
-  fixer runs.
-- **Positions are 1-based UTF-16 code units**, matching ESLint and the language server
-  protocol, so a reported column agrees with an editor's cursor.
-- **`--staged` reads the index, never the working tree.** A hook that reports a violation
-  the commit does not contain is a hook people disable.
-- **A commit message is masked, not trimmed.** Ignorable text becomes spaces so the file
-  keeps its length and positions still point at the line the author typed.
-- **`<commit-msg>` is a virtual include pattern**, which is what lets a message be targeted
-  by an ordinary rule instead of a second configuration format.
+- `README.md`: why the tool exists, install, the shortest path to running it. Resist
+  growing it back into a manual.
+- `docs/`: everything a user might need to look up.
+- `CONTRIBUTING.md`: how to build, test, and extend the project.
+- `AGENTS.md`: only what an agent needs that a human contributor does not.

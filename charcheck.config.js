@@ -32,7 +32,14 @@ export default {
       id: 'no-em-dash-in-prose',
       chars: DASHES,
       message: 'Use a comma, a colon, or reword.',
-      include: ['README.md', 'AGENTS.md', 'CHANGELOG.md', 'docs/**/*.md'],
+      include: [
+        'README.md',
+        'AGENTS.md',
+        'CHANGELOG.md',
+        'CONTRIBUTING.md',
+        'SECURITY.md',
+        'docs/**/*.md',
+      ],
     },
     {
       // Only text that can reach a reader. Comments in this repo are allowed dashes, and
