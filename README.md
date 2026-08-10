@@ -148,6 +148,12 @@ Both parsers are **optional peer dependencies**, imported only when a rule actua
 the scope that needs them. A repo using only `raw` installs nothing extra. When one is
 missing, the error names the package rather than producing a module-not-found trace.
 
+The `strings` scope requires TypeScript 5 or 6. TypeScript 7 is the native compiler, and it
+no longer ships a JavaScript parser: `createSourceFile` and the AST walk this scope is built
+on moved out of the package root, so there is nothing to parse with in-process. The peer
+range is capped at `<7` to make that a resolution error at install time rather than a
+failure on the first file scanned.
+
 A rule whose globs can only ever match files its scope cannot read is rejected when the
 config loads, since that is the mistake that otherwise looks like a working tool finding
 nothing.
