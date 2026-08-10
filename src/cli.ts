@@ -253,10 +253,14 @@ async function runCommitMsg(
  * `/var` against `/private/var` on macOS, `RUNNER~1` against the real user name on
  * Windows. Left alone the subtraction yields `../../…`, which matches no glob, so every
  * staged file is filtered out and the hook reports a clean commit however dirty it is.
+ *
+ * `.native` rather than `realpathSync`, because the JavaScript implementation resolves
+ * symlinks but leaves an 8.3 alias exactly as it found it, which fixes macOS and leaves
+ * Windows broken in precisely the same silent way.
  */
 function canonical(target: string): string {
   try {
-    return toPosix(realpathSync(target));
+    return toPosix(realpathSync.native(target));
   } catch {
     return toPosix(path.resolve(target));
   }
