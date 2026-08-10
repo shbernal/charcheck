@@ -71,16 +71,30 @@ a table row or an HTML element.
 
 ### `clauseSeparator`
 
-Replaces the dash and the whitespace around it with a colon, or with a comma in three
-cases: the dash is followed by a conjunction (`and`, `but`, `or`, `nor`, `so`, `yet`,
-`then`, `because`), the sentence already contains a colon, or it holds two or more dashes
-and so is a bracketed aside rather than an introduction.
+Replaces the dash and the whitespace around it with punctuation.
+
+A **pair** of dashes within one sentence brackets an aside, and becomes a pair of
+parentheses. A comma cannot do what the pair was doing, because a comma does not bracket:
+an aside carrying its own commas collapses into a flat list and the sentence loses its
+verb. Two dashes with a sentence ending between them are two introductions rather than a
+pair, and three or more is no longer a pair anything can identify; both of those fall back
+to commas.
+
+A **lone** dash becomes a colon, or a comma in two cases: the dash is followed by a
+conjunction (`and`, `but`, `or`, `nor`, `so`, `yet`, `then`, `because`), or the sentence
+already contains a colon doing the introducing.
+
+Colons that are not sentence punctuation do not count toward that second case. Ignored are
+the ones inside an inline code span, a Markdown link or image target, a bare URL, and a
+braced block, which is what a stylesheet, a JSON fragment or a template interpolation looks
+like from here. One Markdown link in the line used to be enough to turn a colon into a
+comma splice.
 
 Pair it with a pattern that matches the surrounding whitespace, as above. `\s` rather than
-`[ \t]`: a dash at the end or the start of a wrapped line then takes the line break with it
-and the lines join, which re-flows the paragraph. Restricting it to horizontal space instead
-leaves a trailing space behind a line-final dash and eats the indent in front of a
-line-initial one.
+`[ \t]`: a line break inside the match is put back rather than swallowed, so a dash at the
+end or the start of a wrapped line keeps its break and the paragraph keeps its wrapping.
+Restricting the pattern to horizontal space instead leaves a trailing space behind a
+line-final dash and eats the indent in front of a line-initial one.
 
 It is a guess about prose. Read the diff.
 

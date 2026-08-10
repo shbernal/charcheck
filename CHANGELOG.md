@@ -9,6 +9,30 @@ against every entry that does. A patch release does not.
 
 ## [Unreleased]
 
+### Changed
+
+- `clauseSeparator` now writes a pair of parentheses where a pair of dashes bracketed an
+  aside, instead of a comma for each. A comma does not bracket, so an aside carrying its own
+  commas came out as a flat list and the sentence lost its verb. Over a 126-finding run on a
+  real docs tree this was the commonest bad fix by some way. Two dashes with a sentence
+  ending between them are two introductions rather than a pair, which a `strings` or
+  `markup` container can hold, and three or more dashes is not a pair anything can identify;
+  both still fall back to commas.
+- `clauseSeparator` now puts back a line break that sat in the whitespace it matched, rather
+  than swallowing it. In hard-wrapped prose the fix used to join the two lines and leave the
+  paragraph past its wrap column, which review misses because the diff shows the replacement
+  as correct and the damage is to a line nobody is looking at. The indent of the line the
+  break lands on is kept. The paragraph is not re-flowed, but no line grows by more than the
+  punctuation.
+
+### Fixed
+
+- `clauseSeparator` no longer counts a colon that is not sentence punctuation when deciding
+  between a colon and a comma. Colons inside an inline code span, a Markdown link or image
+  target, a bare URL, and a braced block are ignored, so a line holding a link no longer
+  turns a dash that was introducing a clause into a comma splice, and a dash in a template
+  literal holding a stylesheet is no longer barred from becoming a colon by `display: block`.
+
 ## [0.1.0]
 
 ### Added
