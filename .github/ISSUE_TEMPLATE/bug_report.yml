@@ -1,0 +1,87 @@
+name: Bug report
+description: Something charcheck does, or fails to do, that looks wrong
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing: if charcheck reports success on a file you know contains a banned
+        character, the usual cause is the rule's `scope`, not a bug. A `strings` rule
+        cannot see a comment, and no rule opens a dotted directory unless a glob names it.
+        See [Scopes](https://github.com/shbernal/charcheck/blob/main/docs/scopes.md).
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you expected, and what you got instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Your charcheck config
+      description: The smallest config that still shows the problem.
+      render: js
+    validations:
+      required: true
+
+  - type: textarea
+    id: input
+    attributes:
+      label: The input
+      description: >
+        The file content or commit message being scanned. If a banned character is the
+        point, write it as an escape such as \u2014 so it survives the round trip.
+      render: text
+    validations:
+      required: true
+
+  - type: input
+    id: command
+    attributes:
+      label: The command you ran
+      placeholder: pnpm exec charcheck --staged
+    validations:
+      required: true
+
+  - type: textarea
+    id: output
+    attributes:
+      label: Full output
+      description: Include the exit code if you have it.
+      render: shell
+
+  - type: input
+    id: version
+    attributes:
+      label: charcheck version
+      placeholder: 0.0.1
+    validations:
+      required: true
+
+  - type: input
+    id: node
+    attributes:
+      label: Node version
+      placeholder: node --version
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux
+        - macOS
+        - Windows
+    validations:
+      required: true
+
+  - type: input
+    id: peers
+    attributes:
+      label: typescript and @vue/compiler-sfc versions, if the rule uses those scopes
+      placeholder: typescript 5.9.3

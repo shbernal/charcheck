@@ -1,0 +1,45 @@
+name: Feature request
+description: Propose a capability charcheck does not have
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Two things this project has decided against, so proposals for them will be closed:
+        **vocabulary rules** (word lists, "delve" detectors) and anything that requires
+        charcheck to understand natural language. This tool is about characters.
+
+        A new **scope**, on the other hand, is the most wanted kind of contribution.
+        Svelte and plain HTML are both openly wanted.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do that charcheck cannot do today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you propose
+      description: If it affects config, show the config you would want to write.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you tried instead
+      description: >
+        An `exclude` glob, a suppression comment, a different scope, a separate tool.
+        Knowing what does not work is as useful as the proposal.
+
+  - type: checkboxes
+    id: scope-check
+    attributes:
+      label: Fit
+      options:
+        - label: This is about characters, not vocabulary or grammar.
+          required: true
