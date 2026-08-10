@@ -1,0 +1,8 @@
+# Sources are LF everywhere, including on Windows checkouts, so the formatter and the
+# repo agree.
+* text=auto eol=lf
+
+# Fixtures are asserted on byte for byte, line endings included. One of them exists purely
+# to prove CRLF files report correct positions and survive a fix unchanged, which
+# normalization would quietly defeat.
+tests/fixtures/** -text
