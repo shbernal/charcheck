@@ -27,9 +27,10 @@ Individually: `pnpm run typecheck`, `pnpm run lint`, `pnpm run format` (check on
 `pnpm exec oxfmt` to fix), `pnpm test`, `pnpm run build`, `pnpm run lint:chars`.
 
 Lint is [oxlint](https://oxc.rs/) and formatting is oxfmt. oxfmt covers JavaScript,
-TypeScript and Markdown, so the docs and this file are machine formatted; do not hand-align
-a Markdown table, it will be rewritten. JSON and YAML are not covered. Keep those tidy by
-hand.
+TypeScript, Markdown, JSON and YAML, which is every text format in this repo, so the docs
+and this file are machine formatted. Do not hand-align a Markdown table or a JSON array;
+both will be rewritten. Anything git ignores is skipped, so an ignored path needs no entry
+in `.oxfmtrc.json`.
 
 To run this repo's own hooks, which is how the git modes get exercised:
 

@@ -5,12 +5,5 @@
   "printWidth": 100,
   "trailingComma": "all",
   "sortPackageJson": false,
-  "ignorePatterns": [
-    "dist/",
-    "node_modules/",
-    "coverage/",
-    "pnpm-lock.yaml",
-    "EPHEMERAL-PLAN/",
-    "tests/fixtures/"
-  ]
+  "ignorePatterns": ["dist/", "node_modules/", "coverage/", "pnpm-lock.yaml", "tests/fixtures/"]
 }
