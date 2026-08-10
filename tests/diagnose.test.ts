@@ -8,7 +8,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 
 import { glob } from 'tinyglobby';
-import { expect, it } from 'vitest';
+import { it } from 'vitest';
 
 import { EM_DASH } from '../src/chars.js';
 import { loadConfig } from '../src/config/load.js';
@@ -73,5 +73,4 @@ it('prints the staged path inputs', async () => {
   // Thrown rather than logged: vitest intercepts stdout, but an error message always
   // reaches the CI log.
   throw new Error(`DIAGNOSTIC ${JSON.stringify(data)}`);
-  expect(true).toBe(true);
 });
