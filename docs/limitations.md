@@ -19,7 +19,9 @@ syntax tree. Two consequences:
 
 - `.tsx` and `.jsx` are refused, with an error naming the file. A scanner cannot be told it
   is inside a JSX element, and the apostrophe in `<p>don't stop</p>` would open a string
-  literal running to the next quote in the file. See [Scopes](scopes.md).
+  literal running to the next quote in the file. See [Scopes](scopes.md). The refused file
+  is named on stderr and the run exits 2: it was not looked at, which is not the same
+  answer as finding nothing in it. Every other file is still scanned and reported.
 - The scanner reads `typescript/unstable/ast`, which upstream marks unstable. A rename there
   is caught and reported rather than silently matching nothing, but it would still need a
   release here to fix.

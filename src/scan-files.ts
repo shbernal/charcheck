@@ -6,6 +6,7 @@ import { relativeToRoot } from './paths.js';
 import { readTextFile } from './read.js';
 import type { ReadOutcome } from './read.js';
 import { scanText } from './scan.js';
+import { JsxUnsupportedError } from './scope/missing-peer.js';
 import type { ExtractorOptions, Finding, Rule } from './types.js';
 
 /**
@@ -33,6 +34,13 @@ export interface ScanOptions extends ExtractorOptions {
    * A run continues regardless.
    */
   onWarning?: (message: string) => void;
+  /**
+   * Called for a file a rule targets and no scope can read, which today means JSX on a
+   * TypeScript that ships only a scanner. The scan continues over every other file, so one
+   * unreadable file cannot suppress the whole report, but a caller that ignores this is
+   * calling a partial scan a clean one. The CLI fails the run.
+   */
+  onSkipped?: (file: string, error: Error) => void;
   /**
    * Supplies a file's content instead of the filesystem, given its root-relative path.
    * A staged run uses this to read the git index rather than the working tree.
@@ -133,7 +141,20 @@ export async function scan(options: ScanOptions): Promise<Finding[]> {
       if (!outcome.missing) options.onWarning?.(`cannot read ${file}: ${outcome.reason}`);
       return [];
     }
-    return scanText(outcome.text, file, rules, { textAttributes: options.textAttributes });
+    try {
+      return await scanText(outcome.text, file, rules, {
+        textAttributes: options.textAttributes,
+      });
+    } catch (cause) {
+      // One file no scope can read must not take the report down with it: the findings
+      // already collected from every other file are the whole point of the run. Anything
+      // else is a real failure and is left to propagate.
+      if (cause instanceof JsxUnsupportedError) {
+        options.onSkipped?.(file, cause);
+        return [];
+      }
+      throw cause;
+    }
   });
 
   return perFile

@@ -27,6 +27,9 @@ While the version stays below 0.1.0, anything may change in any release.
   a scanner, which has no way to know it is inside a JSX element, so on TypeScript 7 those
   files are refused with an error naming the file rather than mis-read. They are unaffected
   on TypeScript 5 and 6. See [docs/scopes.md](docs/scopes.md).
+- `ScanOptions.onSkipped`, called with a file a rule targets that no scope could read, and
+  the error that refused it. The scan continues over every other file. The CLI names the
+  file on stderr and exits 2, because a file that was not looked at has not passed.
 
 ### Changed
 
@@ -62,6 +65,10 @@ While the version stays below 0.1.0, anything may change in any release.
   still a value.
 - On TypeScript 7, malformed source could yield a different number of empty literals from
   the two readers. Neither reports one now; an empty range cannot hold a character.
+- A file no scope could read aborted the entire scan, so a single `.tsx` file on
+  TypeScript 7 suppressed the findings from every other file. Because nothing reaches a
+  parser until a banned character is found, this fired on whichever commit first put one in
+  a component rather than at setup.
 - The scopes table said `markup` needs only `@vue/compiler-sfc`. It reads script blocks and
   interpolation expressions the way `strings` does, so it loads `typescript` as well.
 

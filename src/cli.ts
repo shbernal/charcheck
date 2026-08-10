@@ -58,7 +58,9 @@ Flags banned characters in targeted parts of a repo, driven by one config.
                         already honoured.
   --version, --help
 
-Exit codes: 0 clean, 1 findings, 2 a usage or config error.
+Exit codes: 0 clean, 1 findings, 2 a usage or config error, or a file a rule
+targets that no scope could read. A file that was not looked at is reported on
+stderr and never counted as a pass.
 
 Globs in a config resolve against the config file's own directory, so running
 from a subdirectory gives identical results.`;
@@ -177,10 +179,12 @@ async function runTree(
   loaded: LoadedConfig,
   options: Options,
   warn: (message: string) => void,
+  skip: (file: string, error: Error) => void,
 ): Promise<ScanOutcome> {
   const scanOptions = {
     ...toScanOptions(loaded, options.paths.length > 0 ? { files: options.paths } : {}),
     onWarning: warn,
+    onSkipped: skip,
   };
 
   let findings = await scan(scanOptions);
@@ -271,6 +275,7 @@ async function runStaged(
   options: Options,
   io: CliIo,
   warn: (message: string) => void,
+  skip: (file: string, error: Error) => void,
 ): Promise<ScanOutcome> {
   const root = canonical(await repoRoot(io.cwd));
   const configRoot = canonical(loaded.root);
@@ -287,6 +292,7 @@ async function runStaged(
   const scanOptions = {
     ...toScanOptions(loaded, { files: staged.map(toConfigPath) }),
     onWarning: warn,
+    onSkipped: skip,
     read: async (file: string) => {
       try {
         return { ok: true as const, text: await stagedContent(root, toRepoPath(file)) };
@@ -343,6 +349,15 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
     io.err(`charcheck: ${message}`);
   };
 
+  // A file a rule targets and no scope can read. The scan keeps going, so the report still
+  // covers everything else, but the run cannot be called clean: the answer for that file is
+  // not "no findings", it is "not looked at".
+  const skipped: string[] = [];
+  const skip = (file: string, error: Error): void => {
+    skipped.push(file);
+    warn(error.message);
+  };
+
   let loaded;
   try {
     loaded = await loadConfig({
@@ -366,9 +381,9 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
       if (result === undefined) return EXIT_OK;
       outcome = result;
     } else if (options.staged) {
-      outcome = await runStaged(loaded, options, io, warn);
+      outcome = await runStaged(loaded, options, io, warn, skip);
     } else {
-      outcome = await runTree(loaded, options, warn);
+      outcome = await runTree(loaded, options, warn, skip);
     }
   } catch (cause) {
     // A missing optional parser, a bad commit message path, or git refusing: the user's to
@@ -401,6 +416,11 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
   const warnings = findings.length - errors;
   if (errors > 0) return EXIT_FINDINGS;
   if (options.maxWarnings !== undefined && warnings > options.maxWarnings) return EXIT_FINDINGS;
+  if (skipped.length > 0) {
+    // Reported after the findings, so the list is the last thing on the screen.
+    warn(`${String(skipped.length)} file(s) could not be scanned. This run is not a pass.`);
+    return EXIT_USAGE;
+  }
   return EXIT_OK;
 }
 
