@@ -41,8 +41,9 @@ Two traps that cost the most time when hit:
 
 - `src/` sources, `dist/` build output, `tests/` vitest suites and fixtures.
 - `docs/` is the user-facing reference. Update it when behavior, config, or the CLI changes.
-- Optional peer dependencies (`typescript`, `@vue/compiler-sfc`) are imported lazily and
-  only when a rule uses the scope that needs them. Never import them at module top level.
+- Optional peer dependencies (`typescript`, `@vue/compiler-sfc`, `micromark`) are imported
+  lazily, only when a rule uses the scope that needs them. Never import one at module top
+  level.
 
 ## Where documentation goes
 

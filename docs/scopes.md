@@ -3,11 +3,12 @@
 A rule's `scope` decides which part of a file it may match inside. Choosing the wrong one
 fails silently, because a scan that reads nothing looks exactly like a scan that passed.
 
-| Scope           | Reads                                                                                      | Skips                                                               | Applies to                                                   | Needs                              |
-| --------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------- | ------------------------------------------------------------ | ---------------------------------- |
-| `raw` (default) | The whole file                                                                             | Nothing                                                             | Any file                                                     | Nothing                            |
-| `strings`       | String and template literals                                                               | Comments, identifiers, all other code                               | `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs` | `typescript`                       |
-| `markup`        | Template text, interpolated literals, allowlisted attribute values, and both script blocks | HTML comments, `<style>`, custom blocks, non-allowlisted attributes | `.vue`                                                       | `@vue/compiler-sfc`, `typescript`* |
+| Scope           | Reads                                                                                      | Skips                                                                             | Applies to                                                   | Needs                              |
+| --------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- | ------------------------------------------------------------ | ---------------------------------- |
+| `raw` (default) | The whole file                                                                             | Nothing                                                                           | Any file                                                     | Nothing                            |
+| `strings`       | String and template literals                                                               | Comments, identifiers, all other code                                             | `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs` | `typescript`                       |
+| `markup`        | Template text, interpolated literals, allowlisted attribute values, and both script blocks | HTML comments, `<style>`, custom blocks, non-allowlisted attributes               | `.vue`                                                       | `@vue/compiler-sfc`, `typescript`* |
+| `markdown`      | Prose: paragraphs, headings, list items, quotes, link text, titles, alt text, frontmatter  | Fenced and indented code, inline code spans, link targets, autolinks, HTML blocks | `.md`, `.markdown`                                           | `micromark`                        |
 
 \* `markup` reads a component's script blocks and interpolation expressions the way
 `strings` does, so it loads `typescript` too. A component with neither never reaches it.
@@ -18,7 +19,7 @@ nothing.
 
 ## Parsers are optional peer dependencies
 
-Both are imported only when a rule actually uses the scope that needs them. A repo using
+All three are imported only when a rule actually uses the scope that needs them. A repo using
 only `raw` installs nothing extra. When one is missing, the error names the package rather
 than producing a module-not-found trace.
 
@@ -81,3 +82,37 @@ export default {
 ```
 
 `markup` covers `.vue` only today. See [Limitations](limitations.md).
+
+## `markdown`
+
+The prose of a document, which is what `raw` cannot give you: `raw` sees a fenced code block
+as text, so every documented shell command and every code example in `docs/**` is a finding
+waiting to happen. This is the scope for a docs tree.
+
+What counts as prose: paragraph text, headings of both spellings, list items, block quotes,
+table rows, emphasis and strong runs, the words of a link, the alt text of an image, and the
+`title` of either. Frontmatter counts too, as one block.
+
+What does not: fenced code, indented code, inline code spans, a link or image target, a
+reference definition's label and destination, an autolink, a fence's language tag and its
+meta, and an HTML block. Character references and escapes are read as the source wrote them,
+so the `&` of `&amp;` is not a finding.
+
+Titles and alt text are included because they reach a reader, as a tooltip or a screen
+reader. A link target is excluded because nobody reads it and a URL legitimately contains
+punctuation a rule would ban.
+
+Frontmatter is covered whole rather than key by key. A `description:` is rendered on a page
+and a `slug:` is not, but telling them apart means knowing the conventions of every site
+generator, and the cost of covering a key nobody displays is a finding in text nobody reads.
+The block is also split off before parsing, which is not only tidiness: a backtick inside a
+frontmatter value would otherwise open a code span and silence the document below it.
+
+A fix sees the enclosing **sentence**, the same unit `raw` gives, because Markdown prose is
+hard-wrapped the same way. For the same reason, prose either side of a hard wrap is one
+region, so a rule whose pattern spans a space still matches when the author pressed Enter in
+the middle of a sentence. Two line endings are a paragraph break and are never joined.
+
+`.mdx` is not `.markdown`. It needs the JSX reader and inherits its TypeScript 7
+limitation, so it is a separate surface rather than a spelling of this one. See
+[Limitations](limitations.md).

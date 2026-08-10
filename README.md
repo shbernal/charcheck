@@ -98,14 +98,15 @@ Those two are the point of the tool, and they work under lefthook, husky, or two
 A rule's `scope` decides which part of a file it may match inside. Getting this wrong fails
 silently, because a scan that reads nothing looks exactly like a scan that passed.
 
-| Scope           | Reads                                                | Applies to             | Needs                             |
-| --------------- | ---------------------------------------------------- | ---------------------- | --------------------------------- |
-| `raw` (default) | The whole file                                       | Any file               | Nothing                           |
-| `strings`       | String and template literals, never comments         | JavaScript, TypeScript | `typescript`                      |
-| `markup`        | Template text, allowlisted attributes, script blocks | `.vue`                 | `@vue/compiler-sfc`, `typescript` |
+| Scope           | Reads                                                  | Applies to             | Needs                             |
+| --------------- | ------------------------------------------------------ | ---------------------- | --------------------------------- |
+| `raw` (default) | The whole file                                         | Any file               | Nothing                           |
+| `strings`       | String and template literals, never comments           | JavaScript, TypeScript | `typescript`                      |
+| `markup`        | Template text, allowlisted attributes, script blocks   | `.vue`                 | `@vue/compiler-sfc`, `typescript` |
+| `markdown`      | Prose, never fenced or inline code, never link targets | `.md`, `.markdown`     | `micromark`                       |
 
-Both parsers are optional peer dependencies, imported only when a rule uses the scope that
-needs them. A repo using only `raw` installs nothing extra. TypeScript 5, 6 and 7 all work:
+Every parser is an optional peer dependency, imported only when a rule uses the scope that
+needs it. A repo using only `raw` installs nothing extra. TypeScript 5, 6 and 7 all work:
 5 and 6 are read through the syntax tree, and 7, which ships no in-process parser, through
 its token scanner. The one thing that costs is JSX, which a scanner cannot read and which is
 therefore refused on 7. Details are in [Scopes](docs/scopes.md).

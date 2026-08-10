@@ -13,8 +13,13 @@ export type Severity = 'error' | 'warn';
  *   identifiers are exempt.
  * - `markup` scans the text a component file renders: template text, allowlisted
  *   attributes, interpolation expressions and script literals.
+ * - `markdown` scans the prose of a document: not fenced or indented code, not inline code
+ *   spans, not link targets.
+ *
+ * A closed union by decision, not by omission. See the settled design decisions in
+ * `CONTRIBUTING.md`: a surface ships in core, and there is no registry a config can add to.
  */
-export type Scope = 'raw' | 'strings' | 'markup';
+export type Scope = 'raw' | 'strings' | 'markup' | 'markdown';
 
 export interface FixContext {
   /** The enclosing literal for `strings` and `markup`, the enclosing sentence for `raw`. */

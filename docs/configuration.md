@@ -20,17 +20,17 @@ export default defineConfig({
 
 ## Rule fields
 
-| Field      | Type                             | Meaning                                                                                     |
-| ---------- | -------------------------------- | ------------------------------------------------------------------------------------------- |
-| `id`       | `string`                         | Required, unique. Appears in output and in suppression comments.                            |
-| `chars`    | `string[]`                       | Literal strings to ban. Escaped and matched longest first.                                  |
-| `pattern`  | `string`                         | A regular expression source, compiled with `gu`. Use instead of `chars`, never both.        |
-| `include`  | `string[]`                       | Required. Globs, or `<commit-msg>` for the commit message. Matching nothing warns.          |
-| `exclude`  | `string[]`                       | Globs subtracted from `include`.                                                            |
-| `scope`    | `'raw' \| 'strings' \| 'markup'` | Default `raw`. See [Scopes](scopes.md).                                                     |
-| `severity` | `'error' \| 'warn'`              | Default `error`. Only errors fail a run.                                                    |
-| `message`  | `string`                         | Replaces the default, which names the code point.                                           |
-| `fix`      | `string \| (ctx) => string`      | A replacement, or a function of the surrounding text. Absent means the rule is not fixable. |
+| Field      | Type                                           | Meaning                                                                                     |
+| ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `id`       | `string`                                       | Required, unique. Appears in output and in suppression comments.                            |
+| `chars`    | `string[]`                                     | Literal strings to ban. Escaped and matched longest first.                                  |
+| `pattern`  | `string`                                       | A regular expression source, compiled with `gu`. Use instead of `chars`, never both.        |
+| `include`  | `string[]`                                     | Required. Globs, or `<commit-msg>` for the commit message. Matching nothing warns.          |
+| `exclude`  | `string[]`                                     | Globs subtracted from `include`.                                                            |
+| `scope`    | `'raw' \| 'strings' \| 'markup' \| 'markdown'` | Default `raw`. See [Scopes](scopes.md).                                                     |
+| `severity` | `'error' \| 'warn'`                            | Default `error`. Only errors fail a run.                                                    |
+| `message`  | `string`                                       | Replaces the default, which names the code point.                                           |
+| `fix`      | `string \| (ctx) => string`                    | A replacement, or a function of the surrounding text. Absent means the rule is not fixable. |
 
 ## Top-level fields
 
@@ -53,12 +53,14 @@ import { strategies } from 'charcheck/config';
   id: 'clause-separator',
   pattern: '\\s*[\\u2014\\u2015]\\s*',
   fix: strategies.clauseSeparator,
+  scope: 'markdown',
   include: ['docs/**/*.md'],
 }
 ```
 
 It receives `{ container, match, index, scope }`. `container` is the enclosing string
-literal for `strings` and `markup`, and the enclosing **sentence** for `raw`. `index` is
+literal for `strings` and `markup`, and the enclosing **sentence** for `raw` and `markdown`.
+`index` is
 where `match` starts inside it, which matters because a sentence may hold the same text
 twice and searching for it would answer for the wrong one.
 

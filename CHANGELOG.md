@@ -9,6 +9,26 @@ against every entry that does. A patch release does not.
 
 ## [Unreleased]
 
+### Added
+
+- A `markdown` scope, reading the prose of a document and not its code. `raw` sees a fenced
+  block as text, which made `docs/**` the glob every consumer reaches for first and the one
+  most likely to report a documented shell command as a finding. Covers paragraphs, headings,
+  list items, quotes, table rows, link text, link and image titles, alt text, and frontmatter
+  as one block; skips fenced and indented code, inline spans, link and reference targets,
+  autolinks, a fence's language tag and meta, and HTML blocks. Needs the new optional peer
+  `micromark`, imported only when a rule asks for the scope, so nothing changes for a repo
+  that does not. `.md` and `.markdown` only: `.mdx` needs the JSX reader and inherits its
+  TypeScript 7 limitation, so it stays a separate surface.
+
+  Not a breaking change. `Scope` gained a member, which no existing config or typed consumer
+  can notice, and no other exported shape moved.
+
+  A fix in this scope receives the enclosing sentence, as it does under `raw`, since Markdown
+  prose is hard-wrapped the same way. Prose either side of a hard wrap is one region for the
+  same reason, so a pattern spanning a space still matches when the author pressed Enter mid
+  sentence.
+
 ### Changed
 
 - `clauseSeparator` now writes a pair of parentheses where a pair of dashes bracketed an

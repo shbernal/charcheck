@@ -13,6 +13,13 @@ Stated here rather than discovered later.
 - `<style>` blocks are never read, so text in a CSS `content` property is not checked.
 - Vue custom blocks such as `<i18n>` are skipped, though `<i18n>` does hold rendered text
   and is the first candidate for a follow-up.
+- `markdown` covers `.md` and `.markdown`. `.mdx` is not reachable: it needs the JSX reader
+  and would inherit its TypeScript 7 limitation, so it is a separate surface.
+- An HTML block inside a Markdown document is skipped by `markdown`, attributes and text
+  alike. Text in one does render, so this is a miss rather than a safe answer, and it is the
+  cheap direction to be wrong in. A rule needing that text can read the file with `raw`.
+- A fence's language tag and its meta are skipped, which includes the `title="..."` that
+  some site generators render as a caption above a code block.
 
 ## TypeScript 7
 
@@ -40,9 +47,10 @@ None of this applies on TypeScript 5 or 6, which are read through the syntax tre
 
 ## Things you have to exclude by hand
 
-- No Markdown code-fence awareness for findings. A banned character in a fenced example
-  needs an `exclude` glob or a suppression comment. (Suppression _markers_ inside fences
-  are ignored, which is a separate mechanism.)
+- A banned character in a fenced Markdown example needs an `exclude` glob or a suppression
+  comment **under `raw`**, which reads a document as plain text. The `markdown` scope skips
+  fences, so this is a reason to prefer it for a docs tree. (Suppression _markers_ inside
+  fences are ignored under either scope, which is a separate mechanism.)
 - A banned character inside a regular expression or a test fixture needs the same.
 
 ## Git
