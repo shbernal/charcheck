@@ -154,6 +154,33 @@ describe('suppressions', () => {
     expect(await scanText(text, 'a.yml', [emDashRule], { assumeText: true })).toEqual([]);
   });
 
+  it('ignores a marker inside a fenced Markdown block, so documenting it is safe', async () => {
+    // Found by running this tool over its own README: the page explaining the syntax
+    // suppressed itself and reported clean forever.
+    const text = [
+      '# Suppressions',
+      '',
+      '```',
+      'charcheck-disable-file',
+      '```',
+      '',
+      `prose ${EM_DASH} here`,
+    ].join('\n');
+    const findings = await scanText(text, 'README.md', [emDashRule], { assumeText: true });
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.line).toBe(7);
+  });
+
+  it('still honours a marker outside a fence in Markdown', async () => {
+    const text = `<!-- charcheck-disable-file -->\nprose ${EM_DASH} here`;
+    expect(await scanText(text, 'README.md', [emDashRule], { assumeText: true })).toEqual([]);
+  });
+
+  it('honours a marker in a fence-shaped line in a non-Markdown file', async () => {
+    const text = `# charcheck-disable-file\nvalue ${EM_DASH}`;
+    expect(await scanText(text, 'a.yml', [emDashRule], { assumeText: true })).toEqual([]);
+  });
+
   it('does not swallow an HTML comment terminator as a rule id', async () => {
     const text = `<!-- charcheck-disable-next-line no-em-dash -->\nvalue ${EM_DASH}`;
     expect(await scanText(text, 'a.md', [emDashRule], { assumeText: true })).toEqual([]);

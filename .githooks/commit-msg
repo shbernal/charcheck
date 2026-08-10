@@ -1,0 +1,9 @@
+#!/bin/sh
+# charcheck, checking its own commit messages. Enable with:
+#   git config core.hooksPath .githooks
+if [ ! -f dist/cli.js ]; then
+  echo "charcheck hook: dist/cli.js missing, run pnpm build. Skipping." >&2
+  exit 0
+fi
+
+exec node dist/cli.js --commit-msg "$1"

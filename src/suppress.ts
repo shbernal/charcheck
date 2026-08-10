@@ -47,7 +47,10 @@ function suppress(
   else target.rules.set(line, new Set(ids));
 }
 
-export function parseSuppressions(text: string): Suppressions {
+const MARKDOWN = /\.(md|markdown|mdx)$/i;
+const FENCE = /^\s{0,3}(```+|~~~+)/;
+
+export function parseSuppressions(text: string, file = ''): Suppressions {
   const result: Suppressions = {
     fileRules: new Set(),
     allFile: false,
@@ -56,10 +59,23 @@ export function parseSuppressions(text: string): Suppressions {
   };
   const lines = { all: result.allLines, rules: result.lineRules };
 
+  // In Markdown, a fenced block is an example rather than an instruction. Without this,
+  // any document explaining the suppression syntax silently suppresses itself, and the
+  // file most likely to explain it is the one most worth checking.
+  const markdown = MARKDOWN.test(file);
+  let fenced = false;
+
   const sourceLines = text.split('\n');
   for (let i = 0; i < sourceLines.length; i += 1) {
     const lineNumber = i + 1;
     const source = sourceLines[i]!;
+
+    if (markdown && FENCE.test(source)) {
+      fenced = !fenced;
+      continue;
+    }
+    if (fenced) continue;
+
     MARKER.lastIndex = 0;
     let match: RegExpExecArray | null;
     while ((match = MARKER.exec(source)) !== null) {

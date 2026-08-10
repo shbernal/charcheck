@@ -27,6 +27,7 @@
   },
   "files": [
     "dist",
+    "src",
     "README.md",
     "LICENSE"
   ],
@@ -50,7 +51,8 @@
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --check .",
     "test": "vitest run",
-    "check": "pnpm run typecheck && pnpm run lint && pnpm run test",
+    "lint:chars": "node dist/cli.js",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run format && pnpm run test && pnpm run build && pnpm run lint:chars",
     "prepack": "pnpm run build"
   },
   "dependencies": {

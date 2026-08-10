@@ -80,7 +80,7 @@ export async function scanText(
   const lines = (): LineIndex => (lineIndex ??= buildLineIndex(source));
   let suppressions: Suppressions | undefined;
   const suppressed = (ruleId: string, line: number): boolean => {
-    suppressions ??= parseSuppressions(source);
+    suppressions ??= parseSuppressions(source, file);
     return isSuppressed(suppressions, ruleId, line);
   };
 

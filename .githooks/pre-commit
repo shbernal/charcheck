@@ -1,0 +1,12 @@
+#!/bin/sh
+# charcheck, checking itself. Enable with:
+#   git config core.hooksPath .githooks
+#
+# The built CLI is used rather than the published package, so the hook exercises whatever
+# is in the working tree. A missing build is not a reason to block a commit.
+if [ ! -f dist/cli.js ]; then
+  echo "charcheck hook: dist/cli.js missing, run pnpm build. Skipping." >&2
+  exit 0
+fi
+
+exec node dist/cli.js --staged
