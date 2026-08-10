@@ -1,0 +1,120 @@
+name: Publish
+
+# npm trusted publishing identifies this workflow by its path, so the file name is part of
+# the credential. Renaming or moving it revokes publishing until the trusted publisher entry
+# on npm is changed to match. There is no npm token anywhere in this repository, by design.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+# Never cancel a publish that is already talking to the registry.
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    # One platform, not the three CI uses. Every commit reaching main has already been
+    # checked on all three; this run exists to catch a tag placed on something that never
+    # did, and to prove the tarball still builds from a clean checkout.
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24.x
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: The tag must name the version in package.json
+        run: |
+          tagged="${GITHUB_REF_NAME#v}"
+          declared="$(node -p 'require("./package.json").version')"
+          if [ "$tagged" != "$declared" ]; then
+            echo "Tag $GITHUB_REF_NAME says $tagged, package.json says $declared." >&2
+            exit 1
+          fi
+
+      - name: The version must not already be on the registry
+        run: |
+          name="$(node -p 'require("./package.json").name')"
+          version="$(node -p 'require("./package.json").version')"
+          if npm view "$name@$version" version >/dev/null 2>&1; then
+            echo "$name@$version is already published. Bump the version." >&2
+            exit 1
+          fi
+
+      # typecheck, lint, format, test, build, then charcheck over this repo.
+      - run: pnpm run check
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      # Lets pnpm mint the OIDC token it trades for a short-lived registry credential, and
+      # sign the provenance attestation. Nothing else in this job needs a permission.
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      # No registry-url here on purpose: it writes an .npmrc auth line that would take
+      # precedence over the OIDC exchange and then resolve to an empty token.
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24.x
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # prepack builds dist/. Git checks are off because a tag build is a detached HEAD and
+      # pnpm would otherwise insist on being on a branch.
+      - name: Publish to npm
+        run: pnpm publish --no-git-checks
+
+  release:
+    needs: publish
+    runs-on: ubuntu-latest
+
+    # Separate from the publishing job so that the job holding the registry credential is
+    # not also the one that can write to the repository.
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Take the notes from the changelog
+        run: |
+          awk -v heading="## [${GITHUB_REF_NAME#v}]" '
+            $0 == heading { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "CHANGELOG.md has no section for $GITHUB_REF_NAME." >&2
+            exit 1
+          fi
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file release-notes.md

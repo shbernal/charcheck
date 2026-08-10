@@ -8,6 +8,8 @@ While the version stays below 0.1.0, anything may change in any release.
 
 ## [Unreleased]
 
+## [0.0.2]
+
 ### Fixed
 
 - charcheck could not be installed under npm in a project on TypeScript 7. The optional
@@ -25,6 +27,12 @@ While the version stays below 0.1.0, anything may change in any release.
 
 - `UnsupportedPeerDependencyError`, exported from the package root alongside
   `MissingPeerDependencyError`.
+
+### Changed
+
+- Releases are published by a GitHub Actions workflow through npm trusted publishing, so the
+  tarball carries a signed provenance attestation linking it to the commit and the workflow
+  that built it. No npm token exists in the repository or in its secrets.
 
 ## [0.0.1]
 
@@ -59,5 +67,6 @@ First public release.
 `markup` covers `.vue` only, and there is no Markdown code-fence awareness for findings.
 The full list is in [docs/limitations.md](docs/limitations.md).
 
-[unreleased]: https://github.com/shbernal/charcheck/compare/v0.0.1...HEAD
+[unreleased]: https://github.com/shbernal/charcheck/compare/v0.0.2...HEAD
+[0.0.2]: https://github.com/shbernal/charcheck/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/shbernal/charcheck/releases/tag/v0.0.1

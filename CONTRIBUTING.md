@@ -73,6 +73,24 @@ which is how the docs show the syntax and still get checked.
   `CHANGELOG.md` under `Unreleased`.
 - Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/).
 
+## Releasing
+
+Maintainers only. Publishing happens in `.github/workflows/publish.yml` and is triggered by
+pushing a tag:
+
+1. Move the `Unreleased` entries in `CHANGELOG.md` under a new version heading, and add the
+   two link definitions at the bottom of that file.
+2. Set the same version in `package.json`.
+3. Commit, then `git tag -a vX.Y.Z -m "vX.Y.Z"` and push both the branch and the tag.
+
+The workflow refuses to continue if the tag disagrees with `package.json`, if that version is
+already on the registry, if `pnpm run check` fails, or if `CHANGELOG.md` has no section for
+the tag. It then publishes and opens a GitHub release carrying that section as its notes.
+
+There is no npm token in this repository. npm authenticates the workflow through trusted
+publishing, which identifies it by its path, so renaming the file stops publishing until the
+trusted publisher entry on npm is updated to match.
+
 ## Design decisions that are settled
 
 Not closed forever, but reopening one needs a reason beyond preference:
