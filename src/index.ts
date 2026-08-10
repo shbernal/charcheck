@@ -25,6 +25,7 @@ export type { FixStrategyName } from './fix-strategies.js';
 export { compileRule, RuleError } from './rule.js';
 export type { CompiledRule } from './rule.js';
 export {
+  JsxUnsupportedError,
   MissingPeerDependencyError,
   UnsupportedPeerDependencyError,
   UnsupportedScopeError,

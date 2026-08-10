@@ -46,6 +46,26 @@ export class UnsupportedPeerDependencyError extends Error {
 }
 
 /**
+ * Installed, usable, and not for this file. TypeScript 7 leaves only a scanner, and a
+ * scanner cannot be told it is inside a JSX element: `don't` in JSX text would open a
+ * string literal running to the next quote. Refusing the file says so; scanning it anyway
+ * would report text nobody wrote and miss text somebody did.
+ */
+export class JsxUnsupportedError extends Error {
+  readonly file: string;
+
+  constructor(file: string, scope: string) {
+    super(
+      `The "${scope}" scope cannot read JSX on this TypeScript, which provides a scanner ` +
+        `and no parser: ${file}. Install TypeScript 5 or 6 to scan JSX, or exclude these ` +
+        `files from the rule.`,
+    );
+    this.name = 'JsxUnsupportedError';
+    this.file = file;
+  }
+}
+
+/**
  * A failure to resolve the module is a missing dependency; anything else (a syntax error
  * inside the package, a broken install) is a real error and must not be disguised.
  */

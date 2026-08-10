@@ -8,6 +8,31 @@ While the version stays below 0.1.0, anything may change in any release.
 
 ## [Unreleased]
 
+### Added
+
+- The `strings` and `markup` scopes now work on TypeScript 7. That release ships no
+  in-process parser, so on it the literals are read from the token scanner under
+  `typescript/unstable/ast` rather than from a syntax tree. Which reader is used is decided
+  by testing the installed package for the API, not by its version, so a later major that
+  keeps either one needs no release here. TypeScript 5 and 6 are read exactly as before.
+  The suite installs both majors and requires the two readers to return identical ranges
+  over a corpus of pathological sources and every file in this repository.
+- `JsxUnsupportedError`, exported from the package root. `.tsx` and `.jsx` cannot be read by
+  a scanner, which has no way to know it is inside a JSX element, so on TypeScript 7 those
+  files are refused with an error naming the file rather than mis-read. They are unaffected
+  on TypeScript 5 and 6. See [docs/scopes.md](docs/scopes.md).
+
+### Changed
+
+- `UnsupportedPeerDependencyError` from the `strings` scope now means a `typescript` with
+  neither a parser nor a scanner, rather than any TypeScript 7. Its stated range widened
+  from `>=5 <7` to `>=5`, matching the peer range.
+
+### Fixed
+
+- The scopes table said `markup` needs only `@vue/compiler-sfc`. It reads script blocks and
+  interpolation expressions the way `strings` does, so it loads `typescript` as well.
+
 ## [0.0.2]
 
 ### Fixed

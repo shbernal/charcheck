@@ -3,7 +3,11 @@ import { MARKUP_EXTENSIONS, markupExtractor } from './markup.js';
 import { rawExtractor } from './raw.js';
 import { STRINGS_EXTENSIONS, stringsExtractor } from './strings.js';
 
-export { MissingPeerDependencyError, UnsupportedPeerDependencyError } from './missing-peer.js';
+export {
+  JsxUnsupportedError,
+  MissingPeerDependencyError,
+  UnsupportedPeerDependencyError,
+} from './missing-peer.js';
 export { DEFAULT_TEXT_ATTRIBUTES } from './markup.js';
 
 /**

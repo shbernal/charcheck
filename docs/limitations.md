@@ -13,16 +13,18 @@ Stated here rather than discovered later.
 
 ## TypeScript 7
 
-The `strings` scope does not work on TypeScript 7. That release moved the compiler API out
-of the package root and into `typescript/unstable/ast`, with a different shape, so
-`createSourceFile` is simply not there. TypeScript 5 and 6 both work.
+TypeScript 5, 6 and 7 are all supported, but 7 ships no in-process parser, so on that
+version the `strings` and `markup` scopes read literals from a token scanner instead of a
+syntax tree. Two consequences:
 
-Installing charcheck alongside TypeScript 7 is allowed on purpose, because the dependency is
-optional and the `raw` and `markup` scopes never load it. A rule with `scope: 'strings'` then
-fails with an `UnsupportedPeerDependencyError` naming the installed version. The options are
-to keep a supported TypeScript for charcheck to parse with, or to drop the rules that use the
-scope. Porting the extractor to the new API is wanted, but it is explicitly unstable and
-tracking it before it settles would break users on every TypeScript patch.
+- `.tsx` and `.jsx` are refused, with an error naming the file. A scanner cannot be told it
+  is inside a JSX element, and the apostrophe in `<p>don't stop</p>` would open a string
+  literal running to the next quote in the file. See [Scopes](scopes.md).
+- The scanner reads `typescript/unstable/ast`, which upstream marks unstable. A rename there
+  is caught and reported rather than silently matching nothing, but it would still need a
+  release here to fix.
+
+Neither applies on TypeScript 5 or 6, which are read through the syntax tree.
 
 ## Things you have to exclude by hand
 

@@ -98,16 +98,17 @@ Those two are the point of the tool, and they work under lefthook, husky, or two
 A rule's `scope` decides which part of a file it may match inside. Getting this wrong fails
 silently, because a scan that reads nothing looks exactly like a scan that passed.
 
-| Scope           | Reads                                                | Applies to             | Needs               |
-| --------------- | ---------------------------------------------------- | ---------------------- | ------------------- |
-| `raw` (default) | The whole file                                       | Any file               | Nothing             |
-| `strings`       | String and template literals, never comments         | JavaScript, TypeScript | `typescript`        |
-| `markup`        | Template text, allowlisted attributes, script blocks | `.vue`                 | `@vue/compiler-sfc` |
+| Scope           | Reads                                                | Applies to             | Needs                             |
+| --------------- | ---------------------------------------------------- | ---------------------- | --------------------------------- |
+| `raw` (default) | The whole file                                       | Any file               | Nothing                           |
+| `strings`       | String and template literals, never comments         | JavaScript, TypeScript | `typescript`                      |
+| `markup`        | Template text, allowlisted attributes, script blocks | `.vue`                 | `@vue/compiler-sfc`, `typescript` |
 
 Both parsers are optional peer dependencies, imported only when a rule uses the scope that
-needs them. A repo using only `raw` installs nothing extra. The `strings` scope needs
-TypeScript 5 or 6, since TypeScript 7 moved the parser it uses out of the package root.
-Details are in [Scopes](docs/scopes.md).
+needs them. A repo using only `raw` installs nothing extra. TypeScript 5, 6 and 7 all work:
+5 and 6 are read through the syntax tree, and 7, which ships no in-process parser, through
+its token scanner. The one thing that costs is JSX, which a scanner cannot read and which is
+therefore refused on 7. Details are in [Scopes](docs/scopes.md).
 
 ## Documentation
 

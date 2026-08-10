@@ -1,17 +1,20 @@
 import type typescript from 'typescript';
 
 import type { Chunk, Extractor } from '../types.js';
-import { importPeer, UnsupportedPeerDependencyError } from './missing-peer.js';
+import { importPeer, JsxUnsupportedError, UnsupportedPeerDependencyError } from './missing-peer.js';
+import { resolveTokenKinds } from './token-kinds.js';
+import { literalRanges, type Range, type TokenScanner } from './token-scan.js';
 
 /**
- * The versions this scope can actually parse with, which is deliberately narrower than the
- * `typescript` peer range in package.json. The peer range is wide because the dependency is
- * optional and two of the three scopes never load it: a narrow range there makes charcheck
- * uninstallable under npm for a project on an unsupported TypeScript, even one that only
- * ever scans raw text. So installation stays open and the real constraint is enforced here,
- * where it can be reported to the person who asked for the scope.
+ * The peer range this scope can parse with. Wide, because it is now satisfied two different
+ * ways: TypeScript 5 and 6 expose a parser and are read through their syntax tree, while
+ * TypeScript 7 exposes only a scanner and is read token by token. Neither is version
+ * sniffed; the capability is tested. See `loadLiteralReader`.
  */
-export const SUPPORTED_TYPESCRIPT = '>=5 <7';
+export const SUPPORTED_TYPESCRIPT = '>=5';
+
+/** Where TypeScript 7 moved the scanner to. Unstable upstream, and pinned to nothing here. */
+const MODERN_AST_MODULE = 'typescript/unstable/ast';
 
 export type ScriptLanguage = 'ts' | 'tsx' | 'js' | 'jsx';
 
@@ -39,37 +42,132 @@ export function languageForFile(file: string): ScriptLanguage | undefined {
   return EXTENSION_LANGUAGE.get(extensionOf(file));
 }
 
-export async function loadTypeScript(scope: string): Promise<typeof typescript> {
+function isJsx(language: ScriptLanguage): boolean {
+  return language === 'tsx' || language === 'jsx';
+}
+
+/**
+ * Reads the string and template literal ranges out of one piece of source. Which TypeScript
+ * is installed decides how; nothing above this line knows the difference.
+ */
+export type LiteralReader = (
+  source: string,
+  language: ScriptLanguage,
+  fileName: string,
+  scope: string,
+) => Range[];
+
+/** The shape TypeScript 7's `unstable/ast` is used through, which its own types do not describe here. */
+interface ModernAst {
+  createScanner?: (
+    skipTrivia: boolean,
+    languageVariant?: number,
+    textInitial?: string,
+    start?: number,
+    length?: number,
+  ) => TokenScanner;
+  SyntaxKind?: Record<string, unknown>;
+  LanguageVariant?: Record<string, unknown>;
+}
+
+/**
+ * Exported for the equivalence test, which runs both readers over the same corpus and
+ * requires identical ranges. That property is the whole justification for having two, so it
+ * is worth a seam.
+ */
+export function astReader(ts: typeof typescript): LiteralReader {
+  const scriptKindFor = (language: ScriptLanguage): typescript.ScriptKind => {
+    switch (language) {
+      case 'ts':
+        return ts.ScriptKind.TS;
+      case 'tsx':
+        return ts.ScriptKind.TSX;
+      case 'jsx':
+        return ts.ScriptKind.JSX;
+      case 'js':
+        return ts.ScriptKind.JS;
+    }
+  };
+
+  return (source, language, fileName) => {
+    const sourceFile = ts.createSourceFile(
+      fileName,
+      source,
+      ts.ScriptTarget.Latest,
+      false,
+      scriptKindFor(language),
+    );
+
+    const ranges: Range[] = [];
+    const visit = (node: typescript.Node): void => {
+      switch (node.kind) {
+        case ts.SyntaxKind.StringLiteral:
+        case ts.SyntaxKind.NoSubstitutionTemplateLiteral:
+        case ts.SyntaxKind.TemplateHead:
+        case ts.SyntaxKind.TemplateMiddle:
+        case ts.SyntaxKind.TemplateTail:
+          // The raw source slice, never the cooked value: an escape sequence makes the two
+          // different lengths and every position computed against the cooked one is wrong.
+          ranges.push({ start: node.getStart(sourceFile), end: node.getEnd() });
+          break;
+        default:
+          break;
+      }
+      ts.forEachChild(node, visit);
+    };
+    ts.forEachChild(sourceFile, visit);
+    return ranges;
+  };
+}
+
+/** Exported for the same reason as `astReader`. */
+export function scannerReader(
+  ast: Required<Pick<ModernAst, 'createScanner'>> & ModernAst,
+): LiteralReader {
+  const kinds = resolveTokenKinds(ast.SyntaxKind ?? {});
+  const standard = ast.LanguageVariant?.['Standard'];
+
+  return (source, language, fileName, scope) => {
+    // A scanner has no way to know it is inside a JSX element, and read as ordinary code
+    // an apostrophe in JSX text opens a string literal that runs to the next quote. That
+    // would report text no reader sees and hide text they do. Refused instead.
+    if (isJsx(language)) throw new JsxUnsupportedError(fileName, scope);
+
+    const scanner = ast.createScanner(
+      true,
+      typeof standard === 'number' ? standard : undefined,
+      source,
+    );
+    return literalRanges(scanner, kinds);
+  };
+}
+
+/**
+ * Loads the peer and picks the reader by what it can do, not by what it calls itself, so a
+ * major that keeps an API keeps working without a release here.
+ */
+export async function loadLiteralReader(scope: string): Promise<LiteralReader> {
   const loaded = await importPeer('typescript', scope, () => import('typescript'));
   // The package is CommonJS, so an interop default may wrap the namespace.
   const ts = ((loaded as { default?: typeof typescript }).default ?? loaded) as typeof typescript;
 
-  // Tested by capability rather than by version, so a later major that keeps the API works
-  // without a release here, and one that drops it is caught whatever it calls itself.
   const api = ts as Partial<typeof typescript>;
-  if (typeof api.createSourceFile !== 'function' || typeof api.forEachChild !== 'function') {
-    throw new UnsupportedPeerDependencyError(
-      'typescript',
-      scope,
-      api.version,
-      SUPPORTED_TYPESCRIPT,
-    );
+  if (typeof api.createSourceFile === 'function' && typeof api.forEachChild === 'function') {
+    return astReader(ts);
   }
 
-  return ts;
-}
-
-function scriptKindFor(ts: typeof typescript, language: ScriptLanguage): typescript.ScriptKind {
-  switch (language) {
-    case 'ts':
-      return ts.ScriptKind.TS;
-    case 'tsx':
-      return ts.ScriptKind.TSX;
-    case 'jsx':
-      return ts.ScriptKind.JSX;
-    case 'js':
-      return ts.ScriptKind.JS;
+  // TypeScript 7 and later: the parser is gone from the package root and a scanner is what
+  // is left. The specifier is a variable because a TypeScript 5 install does not export the
+  // subpath at all, and a literal would be a build error against those types.
+  const modern = await import(MODERN_AST_MODULE).catch(() => undefined);
+  const scanning = ((modern as { default?: ModernAst } | undefined)?.default ?? modern) as
+    | ModernAst
+    | undefined;
+  if (typeof scanning?.createScanner === 'function') {
+    return scannerReader(scanning as Required<Pick<ModernAst, 'createScanner'>> & ModernAst);
   }
+
+  throw new UnsupportedPeerDependencyError('typescript', scope, api.version, SUPPORTED_TYPESCRIPT);
 }
 
 export interface LiteralChunkOptions {
@@ -92,40 +190,13 @@ export async function extractLiteralChunks(
   options: LiteralChunkOptions = {},
 ): Promise<Chunk[]> {
   const { offset = 0, language = 'ts', fileName = 'source.ts', scope = 'strings' } = options;
-  const ts = await loadTypeScript(scope);
+  const read = await loadLiteralReader(scope);
 
-  const sourceFile = ts.createSourceFile(
-    fileName,
-    source,
-    ts.ScriptTarget.Latest,
-    false,
-    scriptKindFor(ts, language),
-  );
-
-  const chunks: Chunk[] = [];
-  const visit = (node: typescript.Node): void => {
-    switch (node.kind) {
-      case ts.SyntaxKind.StringLiteral:
-      case ts.SyntaxKind.NoSubstitutionTemplateLiteral:
-      case ts.SyntaxKind.TemplateHead:
-      case ts.SyntaxKind.TemplateMiddle:
-      case ts.SyntaxKind.TemplateTail:
-        // The raw source slice, never the cooked value: an escape sequence makes the two
-        // different lengths and every position computed against the cooked one is wrong.
-        chunks.push({
-          start: node.getStart(sourceFile) + offset,
-          end: node.getEnd() + offset,
-          container: 'self',
-        });
-        break;
-      default:
-        break;
-    }
-    ts.forEachChild(node, visit);
-  };
-  ts.forEachChild(sourceFile, visit);
-
-  return chunks;
+  return read(source, language, fileName, scope).map((range) => ({
+    start: range.start + offset,
+    end: range.end + offset,
+    container: 'self' as const,
+  }));
 }
 
 export const stringsExtractor: Extractor = async (text, file) => {
