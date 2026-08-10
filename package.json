@@ -61,7 +61,7 @@
   },
   "peerDependencies": {
     "@vue/compiler-sfc": "^3.5.0",
-    "typescript": "^5.0.0"
+    "typescript": ">=5"
   },
   "peerDependenciesMeta": {
     "@vue/compiler-sfc": {

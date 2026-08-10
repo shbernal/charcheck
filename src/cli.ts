@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { realpathSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -379,12 +380,29 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
   return EXIT_OK;
 }
 
-/* c8 ignore start */
-const invokedDirectly =
-  process.argv[1] !== undefined &&
-  path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
+/**
+ * Is this module the program being run, rather than an import?
+ *
+ * Both sides are resolved through `realpath` because a package manager may put a symlink
+ * in `node_modules` and node reports the *real* path in `import.meta.url` while argv keeps
+ * the link. Comparing them raw makes the binary a silent no-op that exits 0, which is far
+ * worse than a crash: every check appears to pass.
+ */
+function isEntryPoint(): boolean {
+  const argv = process.argv[1];
+  if (argv === undefined) return false;
+  const real = (target: string): string => {
+    try {
+      return realpathSync(target);
+    } catch {
+      return path.resolve(target);
+    }
+  };
+  return real(argv) === real(fileURLToPath(import.meta.url));
+}
 
-if (invokedDirectly) {
+/* c8 ignore start */
+if (isEntryPoint()) {
   // process.exitCode, never process.exit: a buffered stdout must be allowed to flush.
   process.exitCode = await run(process.argv.slice(2), {
     cwd: process.cwd(),
