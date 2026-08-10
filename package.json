@@ -1,0 +1,82 @@
+{
+  "name": "@shbernal/charcheck",
+  "version": "0.1.0",
+  "description": "Flag banned characters (em dashes, invisibles) in targeted parts of a repo, from one config",
+  "keywords": [
+    "banned-characters",
+    "em-dash",
+    "lint",
+    "prose",
+    "pre-commit",
+    "commit-msg"
+  ],
+  "author": "shbernal",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shbernal/charcheck"
+  },
+  "type": "module",
+  "private": false,
+  "packageManager": "pnpm@11.11.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "bin": {
+    "charcheck": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./config": {
+      "types": "./dist/config/index.d.ts",
+      "import": "./dist/config/index.js"
+    },
+    "./presets": {
+      "types": "./dist/presets/index.d.ts",
+      "import": "./dist/presets/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --max-warnings 0",
+    "format": "prettier --check .",
+    "test": "vitest run",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run test",
+    "prepack": "pnpm run build"
+  },
+  "dependencies": {
+    "picocolors": "^1.1.1",
+    "tinyglobby": "^0.2.15"
+  },
+  "peerDependencies": {
+    "@vue/compiler-sfc": "^3.5.0",
+    "typescript": "^5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@vue/compiler-sfc": {
+      "optional": true
+    },
+    "typescript": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^24.10.1",
+    "@vue/compiler-sfc": "^3.5.24",
+    "eslint": "^9.39.1",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.48.1",
+    "vitest": "^3.2.4"
+  }
+}
