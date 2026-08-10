@@ -29,8 +29,12 @@ const FIXTURES = ['tests/fixtures/**'];
 export default {
   rules: [
     {
+      // Prose, not the code examples in it. This repo documents shell commands and config,
+      // and under `raw` a dash inside a fenced block was indistinguishable from a dash in a
+      // sentence. It also proves the scope does what the docs claim.
       id: 'no-em-dash-in-prose',
       chars: DASHES,
+      scope: 'markdown',
       message: 'Use a comma, a colon, or reword.',
       include: [
         'README.md',
