@@ -4,6 +4,7 @@ import { glob } from 'tinyglobby';
 
 import { relativeToRoot } from './paths.js';
 import { readTextFile } from './read.js';
+import type { ReadOutcome } from './read.js';
 import { scanText } from './scan.js';
 import type { ExtractorOptions, Finding, Rule } from './types.js';
 
@@ -29,6 +30,11 @@ export interface ScanOptions extends ExtractorOptions {
   concurrency?: number;
   /** Called for a file that could not be read. A run over a tree continues regardless. */
   onWarning?: (message: string) => void;
+  /**
+   * Supplies a file's content instead of the filesystem, given its root-relative path.
+   * A staged run uses this to read the git index rather than the working tree.
+   */
+  read?: (file: string) => Promise<ReadOutcome>;
 }
 
 async function filesForRule(
@@ -105,7 +111,9 @@ export async function scan(options: ScanOptions): Promise<Finding[]> {
   const entries = [...plan.entries()];
 
   const perFile = await mapWithLimit(entries, options.concurrency ?? 16, async ([file, rules]) => {
-    const outcome = await readTextFile(path.join(options.root, file));
+    const outcome = options.read
+      ? await options.read(file)
+      : await readTextFile(path.join(options.root, file));
     if (!outcome.ok) {
       if (!outcome.missing) options.onWarning?.(`cannot read ${file}: ${outcome.reason}`);
       return [];

@@ -4,11 +4,16 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
+import { prepareCommitMessage } from './commit-msg.js';
 import { ConfigNotFoundError, loadConfig } from './config/load.js';
-import { toScanOptions } from './config/resolve.js';
+import { toScanOptions, virtualRules } from './config/resolve.js';
 import { ConfigError } from './config/schema.js';
+import type { LoadedConfig } from './config/types.js';
 import { fixFiles } from './fix-files.js';
+import { commentChar, repoRoot, stageFiles, stagedContent, stagedFiles } from './git.js';
+import { relativeToRoot, toPosix } from './paths.js';
 import { readTextFile } from './read.js';
+import { scanText } from './scan.js';
 import { formatJson } from './report/json.js';
 import { formatPretty } from './report/pretty.js';
 import { formatSarif } from './report/sarif.js';
@@ -36,6 +41,13 @@ Flags banned characters in targeted parts of a repo, driven by one config.
   --fix                 Rewrite the findings whose rule declares a fix, then
                         report what is left. A fix is a guess about prose, so
                         read the diff.
+  --staged              Check the staged content of the staged files, read from
+                        the index rather than the working tree, so unstaged
+                        edits are never reported. With --fix, the working tree
+                        is rewritten and the changed files are staged again.
+  --commit-msg <file>   Check a commit message. Comment lines and anything below
+                        the scissors are ignored, and a message git generated
+                        itself is skipped. --fix is refused here.
   --format <fmt>        pretty (default), json, or sarif. json and sarif go to
                         stdout alone, so piping to a parser needs no filtering.
   --max-warnings <n>    Exit non-zero when warnings exceed n. Unlimited by
@@ -63,6 +75,8 @@ class UsageError extends Error {}
 interface Options {
   paths: string[];
   config?: string;
+  commitMsg?: string;
+  staged: boolean;
   fix: boolean;
   format: Format;
   maxWarnings?: number;
@@ -80,6 +94,8 @@ function parse(argv: string[], io: CliIo): Options | 'help' | 'version' {
       options: {
         config: { type: 'string' },
         fix: { type: 'boolean', default: false },
+        staged: { type: 'boolean', default: false },
+        'commit-msg': { type: 'string' },
         format: { type: 'string', default: 'pretty' },
         'max-warnings': { type: 'string' },
         quiet: { type: 'boolean', default: false },
@@ -109,9 +125,24 @@ function parse(argv: string[], io: CliIo): Options | 'help' | 'version' {
     }
   }
 
+  const staged = values.staged === true;
+  const commitMsg = values['commit-msg'];
+  if (commitMsg !== undefined && staged) {
+    throw new UsageError('--staged and --commit-msg check different things; use one.');
+  }
+  if (commitMsg !== undefined && values.fix === true) {
+    // Rewriting someone's commit message under them is worse than failing the commit.
+    throw new UsageError('--fix is refused for a commit message. Edit the message yourself.');
+  }
+  if (staged && parsed.positionals.length > 0) {
+    throw new UsageError('--staged selects the files itself; do not also pass paths.');
+  }
+
   return {
     paths: parsed.positionals,
     ...(values.config !== undefined ? { config: values.config } : {}),
+    ...(commitMsg !== undefined ? { commitMsg } : {}),
+    staged,
     fix: values.fix === true,
     format: format as Format,
     ...(maxWarnings !== undefined ? { maxWarnings } : {}),
@@ -138,6 +169,130 @@ async function sourcesFor(
     if (outcome.ok) sources.set(file, outcome.text);
   }
   return sources;
+}
+
+/** The ordinary run: the working tree, optionally narrowed to some paths. */
+async function runTree(
+  loaded: LoadedConfig,
+  options: Options,
+  warn: (message: string) => void,
+): Promise<ScanOutcome> {
+  const scanOptions = {
+    ...toScanOptions(loaded, options.paths.length > 0 ? { files: options.paths } : {}),
+    onWarning: warn,
+  };
+
+  let findings = await scan(scanOptions);
+  let fixedCount = 0;
+
+  if (options.fix && findings.some((finding) => finding.fixable)) {
+    const outcome = await fixFiles(scanOptions.root, findings, warn);
+    fixedCount = outcome.fixed;
+    if (outcome.files.length > 0) findings = await scan(scanOptions);
+  }
+
+  return { findings, sources: await sourcesFor(scanOptions.root, findings), fixedCount };
+}
+
+interface ScanOutcome {
+  findings: Finding[];
+  sources: Map<string, string>;
+  fixedCount: number;
+}
+
+/**
+ * A commit message, with everything git wrote into the file blanked out first: comment
+ * lines, and under `commit.verbose` the whole diff below the scissors. The blanking keeps
+ * the character count, so a reported position still points at the line as the developer
+ * sees it.
+ */
+async function runCommitMsg(
+  loaded: LoadedConfig,
+  file: string,
+  io: CliIo,
+): Promise<ScanOutcome | undefined> {
+  const rules = virtualRules(loaded.config.rules, 'commit-msg');
+  if (rules.length === 0) return undefined;
+
+  const outcome = await readTextFile(path.resolve(io.cwd, file));
+  if (!outcome.ok) {
+    throw new UsageError(`cannot read the commit message at ${file}: ${outcome.reason}`);
+  }
+
+  const comment = await commentChar(io.cwd, outcome.text);
+  const prepared = prepareCommitMessage(outcome.text, comment);
+  if (prepared.generated) return undefined;
+
+  const display = toPosix(file);
+  const findings = await scanText(prepared.masked, display, rules, {
+    assumeText: true,
+    ...(loaded.config.markup?.textAttributes
+      ? { textAttributes: loaded.config.markup.textAttributes }
+      : {}),
+  });
+
+  // The excerpt comes from the original, not the blanked copy.
+  return { findings, sources: new Map([[display, outcome.text]]), fixedCount: 0 };
+}
+
+/**
+ * The staged content of the staged files, read from the index.
+ *
+ * The working tree is deliberately not consulted: a hook that reports a violation the
+ * commit does not contain is a hook people turn off.
+ */
+async function runStaged(
+  loaded: LoadedConfig,
+  options: Options,
+  io: CliIo,
+  warn: (message: string) => void,
+): Promise<ScanOutcome> {
+  const root = await repoRoot(io.cwd);
+  const configRoot = loaded.root;
+
+  // Git speaks in repository-relative paths; the rules' globs are relative to the config.
+  const toConfigPath = (file: string): string =>
+    relativeToRoot(configRoot, path.resolve(root, file));
+  const toRepoPath = (file: string): string =>
+    toPosix(path.relative(root, path.resolve(configRoot, file)));
+
+  const staged = await stagedFiles(io.cwd);
+  if (staged.length === 0) return { findings: [], sources: new Map(), fixedCount: 0 };
+
+  const scanOptions = {
+    ...toScanOptions(loaded, { files: staged.map(toConfigPath) }),
+    onWarning: warn,
+    read: async (file: string) => {
+      try {
+        return { ok: true as const, text: await stagedContent(root, toRepoPath(file)) };
+      } catch (cause) {
+        return { ok: false as const, missing: false, reason: (cause as Error).message };
+      }
+    },
+  };
+
+  let findings = await scan(scanOptions);
+  let fixedCount = 0;
+
+  if (options.fix && findings.some((finding) => finding.fixable)) {
+    // The working tree is what gets rewritten; the index then has to be brought along, or
+    // the commit would still carry the unfixed content.
+    const outcome = await fixFiles(configRoot, findings, warn);
+    fixedCount = outcome.fixed;
+    if (outcome.files.length > 0) {
+      await stageFiles(root, outcome.files.map(toRepoPath));
+      io.err(`charcheck: re-staged ${String(outcome.files.length)} fixed file(s).`);
+      findings = await scan(scanOptions);
+    }
+  }
+
+  const sources = new Map<string, string>();
+  for (const file of new Set(findings.map((finding) => finding.file))) {
+    const content = await scanOptions.read(file);
+    if (content.ok) sources.set(file, content.text);
+  }
+
+  return { findings, sources, fixedCount };
 }
 
 export async function run(argv: string[], io: CliIo): Promise<number> {
@@ -177,26 +332,27 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
     throw cause;
   }
 
-  const scanOptions = {
-    ...toScanOptions(loaded, options.paths.length > 0 ? { files: options.paths } : {}),
-    onWarning: warn,
-  };
-
-  let findings: Finding[];
+  let outcome: ScanOutcome;
   try {
-    findings = await scan(scanOptions);
+    if (options.commitMsg !== undefined) {
+      // No rule targets a commit message, or git wrote the message itself. Either way
+      // there is nothing to check and a hook must not fail.
+      const result = await runCommitMsg(loaded, options.commitMsg, io);
+      if (result === undefined) return EXIT_OK;
+      outcome = result;
+    } else if (options.staged) {
+      outcome = await runStaged(loaded, options, io, warn);
+    } else {
+      outcome = await runTree(loaded, options, warn);
+    }
   } catch (cause) {
-    // A missing optional parser is the user's problem to fix, not a crash to report.
+    // A missing optional parser, a bad commit message path, or git refusing: the user's to
+    // fix, not a stack trace to read.
     io.err(`charcheck: ${(cause as Error).message}`);
     return EXIT_USAGE;
   }
 
-  let fixedCount = 0;
-  if (options.fix && findings.some((finding) => finding.fixable)) {
-    const outcome = await fixFiles(scanOptions.root, findings, warn);
-    fixedCount = outcome.fixed;
-    if (outcome.files.length > 0) findings = await scan(scanOptions);
-  }
+  const { findings, fixedCount } = outcome;
 
   const reported = options.quiet
     ? findings.filter((finding) => finding.severity === 'error')
@@ -210,7 +366,7 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
     io.out(
       formatPretty(reported, {
         color: options.color,
-        sources: await sourcesFor(scanOptions.root, reported),
+        sources: outcome.sources,
         fixedCount,
       }),
     );
