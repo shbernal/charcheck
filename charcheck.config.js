@@ -32,7 +32,7 @@ export default {
       id: 'no-em-dash-in-prose',
       chars: DASHES,
       message: 'Use a comma, a colon, or reword.',
-      include: ['README.md', 'AGENTS.md', 'docs/**/*.md'],
+      include: ['README.md', 'AGENTS.md', 'CHANGELOG.md', 'docs/**/*.md'],
     },
     {
       // Only text that can reach a reader. Comments in this repo are allowed dashes, and
@@ -47,7 +47,9 @@ export default {
       id: 'no-invisibles',
       chars: INVISIBLES,
       message: 'Invisible character. Delete it.',
-      include: ['**/*.{ts,js,md,json,yaml,yml}'],
+      // The second pattern is not redundant: dotted directories are only scanned when a
+      // pattern names them, so the workflows would otherwise go unchecked.
+      include: ['**/*.{ts,js,md,json,yaml,yml}', '.github/**/*.yml'],
       exclude: [...GENERATED, ...FIXTURES],
     },
     {

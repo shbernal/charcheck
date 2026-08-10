@@ -388,4 +388,4 @@ code, prose, components and commit messages at once, with a different policy for
 
 ## License
 
-MIT
+[MIT](LICENSE)

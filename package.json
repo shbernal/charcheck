@@ -14,10 +14,17 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/shbernal/charcheck"
+    "url": "git+https://github.com/shbernal/charcheck.git"
+  },
+  "homepage": "https://github.com/shbernal/charcheck#readme",
+  "bugs": {
+    "url": "https://github.com/shbernal/charcheck/issues"
   },
   "type": "module",
   "private": false,
+  "publishConfig": {
+    "access": "public"
+  },
   "packageManager": "pnpm@11.11.0",
   "engines": {
     "node": ">=24"
