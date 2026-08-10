@@ -1,0 +1,123 @@
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+import { EM_DASH } from '../src/chars.js';
+import { relativeToRoot, toPosix } from '../src/paths.js';
+import { scan } from '../src/scan-files.js';
+import { rule } from './helpers.js';
+
+let root: string;
+
+async function write(relative: string, contents: string): Promise<void> {
+  const target = path.join(root, relative);
+  await mkdir(path.dirname(target), { recursive: true });
+  await writeFile(target, contents, 'utf8');
+}
+
+beforeAll(async () => {
+  root = await mkdtemp(path.join(os.tmpdir(), 'charcheck-'));
+  await write('docs/guide.md', `prose ${EM_DASH} here\n`);
+  await write('docs/clean.md', 'nothing to see\n');
+  await write('src/app.ts', `const s = "text ${EM_DASH}"; // comment ${EM_DASH}\n`);
+  await write('src/nested/deep.md', `deep ${EM_DASH}\n`);
+  await write('node_modules/pkg/readme.md', `vendored ${EM_DASH}\n`);
+  await write('dist/built.md', `generated ${EM_DASH}\n`);
+});
+
+afterAll(async () => {
+  await rm(root, { recursive: true, force: true });
+});
+
+describe('scan', () => {
+  it('resolves each rule against its own globs', async () => {
+    const findings = await scan({
+      root,
+      rules: [rule({ id: 'md', include: ['**/*.md'] })],
+    });
+    expect(findings.map((f) => f.file)).toEqual(
+      ['docs/guide.md', 'dist/built.md', 'src/nested/deep.md'].sort(),
+    );
+  });
+
+  it('ignores node_modules and .git without being asked', async () => {
+    const findings = await scan({ root, rules: [rule({ id: 'md', include: ['**/*.md'] })] });
+    expect(findings.some((f) => f.file.includes('node_modules'))).toBe(false);
+  });
+
+  it('honours a rule exclude and a global ignore', async () => {
+    const findings = await scan({
+      root,
+      rules: [rule({ id: 'md', include: ['**/*.md'], exclude: ['dist/**'] })],
+      ignore: ['**/nested/**'],
+    });
+    expect(findings.map((f) => f.file)).toEqual(['docs/guide.md']);
+  });
+
+  it('applies a scope per rule, in the same run', async () => {
+    const findings = await scan({
+      root,
+      rules: [
+        rule({ id: 'prose', include: ['docs/**/*.md'] }),
+        rule({ id: 'code', include: ['src/**/*.ts'], scope: 'strings' }),
+      ],
+    });
+    expect(findings.map((f) => `${f.ruleId}:${f.file}`)).toEqual([
+      'prose:docs/guide.md',
+      'code:src/app.ts',
+    ]);
+  });
+
+  it('reads a file matched by two rules once and reports both', async () => {
+    const findings = await scan({
+      root,
+      rules: [
+        rule({ id: 'first', include: ['docs/guide.md'] }),
+        rule({ id: 'second', include: ['docs/**'] }),
+      ],
+    });
+    expect(findings.map((f) => f.ruleId).sort()).toEqual(['first', 'second']);
+  });
+
+  it('restricts to an explicit file list, still filtered by the globs', async () => {
+    const findings = await scan({
+      root,
+      rules: [rule({ id: 'md', include: ['docs/**/*.md'] })],
+      files: ['docs/guide.md', 'src/nested/deep.md', path.join(root, 'docs', 'clean.md')],
+    });
+    expect(findings.map((f) => f.file)).toEqual(['docs/guide.md']);
+  });
+
+  it('accepts backslash paths in the explicit list', async () => {
+    const findings = await scan({
+      root,
+      rules: [rule({ id: 'md', include: ['**/*.md'] })],
+      files: ['docs\\guide.md'],
+    });
+    expect(findings.map((f) => f.file)).toEqual(['docs/guide.md']);
+  });
+
+  it('reports POSIX paths relative to the root', async () => {
+    const findings = await scan({ root, rules: [rule({ id: 'md', include: ['**/nested/*.md'] })] });
+    expect(findings[0]!.file).toBe('src/nested/deep.md');
+  });
+
+  it('tolerates a path that vanished between globbing and reading', async () => {
+    const findings = await scan({
+      root,
+      rules: [rule({ id: 'md', include: ['**/*.md'] })],
+      files: ['docs/gone.md'],
+    });
+    expect(findings).toEqual([]);
+  });
+});
+
+describe('path normalization', () => {
+  it('converts separators and strips a leading dot slash', () => {
+    expect(toPosix('a\\b\\c.ts')).toBe('a/b/c.ts');
+    expect(relativeToRoot('/root', './a/b.ts')).toBe('a/b.ts');
+    expect(relativeToRoot(path.join(root, 'x'), path.join(root, 'x', 'y', 'z.ts'))).toBe('y/z.ts');
+  });
+});

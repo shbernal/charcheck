@@ -30,15 +30,16 @@ what lets `.ts` config files and `.ts` sources load without a bundler.
 
 ## Dogfooding warning
 
-charcheck bans characters — em dashes above all — and this repo runs charcheck on itself.
+charcheck bans characters, em dashes above all, and this repo runs charcheck on itself.
 Anything you write here is subject to its own rules, including this file, the README, and
 test names. Two consequences:
 
 - Test fixtures deliberately contain banned characters. They are excluded from the
   self-check; keep them under `tests/fixtures/` so the exclusion keeps working.
 - When a banned character must appear in real source (a rule definition, a doc example),
-  use an escape (`'—'`) or a suppression comment rather than the literal, so the file
-  can still be read by the tool it configures.
+  name it through `src/chars.ts`, which builds each one from its code point, or use a
+  suppression comment, so the file can still be read by the tool it configures. Do not
+  paste the character itself.
 
 ## Layout
 

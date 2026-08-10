@@ -1,6 +1,6 @@
 # charcheck
 
-Flag banned characters — em dashes first, invisibles next — in targeted parts of a repo,
+Flag banned characters (em dashes first, invisibles next) in targeted parts of a repo,
 driven by one config, reachable from a package script, a pre-commit hook, and a commit-msg
 hook.
 

@@ -1,0 +1,43 @@
+import type { Extractor, Scope } from '../types.js';
+import { rawExtractor } from './raw.js';
+import { STRINGS_EXTENSIONS, stringsExtractor } from './strings.js';
+
+export { MissingPeerDependencyError } from './missing-peer.js';
+
+/**
+ * The scope table. A scope is an extractor, not a branch in the scanner, so a new surface
+ * is a new file plus one entry here.
+ */
+const EXTRACTORS: Partial<Record<Scope, Extractor>> = {
+  raw: rawExtractor,
+  strings: stringsExtractor,
+};
+
+export class UnsupportedScopeError extends Error {
+  constructor(scope: string) {
+    super(`Unknown scope "${scope}".`);
+    this.name = 'UnsupportedScopeError';
+  }
+}
+
+export function getExtractor(scope: Scope): Extractor {
+  const extractor = EXTRACTORS[scope];
+  if (!extractor) throw new UnsupportedScopeError(scope);
+  return extractor;
+}
+
+/**
+ * Extensions each parser-backed scope understands. `raw` has no restriction, so it is
+ * absent here. Used to reject, at config load time, a rule whose globs can only ever match
+ * files its scope cannot read.
+ */
+export const SCOPE_EXTENSIONS: Partial<Record<Scope, readonly string[]>> = {
+  strings: STRINGS_EXTENSIONS,
+};
+
+export function scopeSupportsFile(scope: Scope, file: string): boolean {
+  const extensions = SCOPE_EXTENSIONS[scope];
+  if (!extensions) return true;
+  const lower = file.toLowerCase();
+  return extensions.some((extension) => lower.endsWith(extension));
+}
