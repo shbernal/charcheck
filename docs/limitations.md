@@ -11,6 +11,19 @@ Stated here rather than discovered later.
 - Vue custom blocks such as `<i18n>` are skipped, though `<i18n>` does hold rendered text
   and is the first candidate for a follow-up.
 
+## TypeScript 7
+
+The `strings` scope does not work on TypeScript 7. That release moved the compiler API out
+of the package root and into `typescript/unstable/ast`, with a different shape, so
+`createSourceFile` is simply not there. TypeScript 5 and 6 both work.
+
+Installing charcheck alongside TypeScript 7 is allowed on purpose, because the dependency is
+optional and the `raw` and `markup` scopes never load it. A rule with `scope: 'strings'` then
+fails with an `UnsupportedPeerDependencyError` naming the installed version. The options are
+to keep a supported TypeScript for charcheck to parse with, or to drop the rules that use the
+scope. Porting the extractor to the new API is wanted, but it is explicitly unstable and
+tracking it before it settles would break users on every TypeScript patch.
+
 ## Things you have to exclude by hand
 
 - No Markdown code-fence awareness for findings. A banned character in a fenced example

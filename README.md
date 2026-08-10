@@ -105,8 +105,9 @@ silently, because a scan that reads nothing looks exactly like a scan that passe
 | `markup`        | Template text, allowlisted attributes, script blocks | `.vue`                 | `@vue/compiler-sfc` |
 
 Both parsers are optional peer dependencies, imported only when a rule uses the scope that
-needs them. A repo using only `raw` installs nothing extra. Details, including why the
-`typescript` peer is capped below 7, are in [Scopes](docs/scopes.md).
+needs them. A repo using only `raw` installs nothing extra. The `strings` scope needs
+TypeScript 5 or 6, since TypeScript 7 moved the parser it uses out of the package root.
+Details are in [Scopes](docs/scopes.md).
 
 ## Documentation
 

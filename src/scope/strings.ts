@@ -1,7 +1,17 @@
 import type typescript from 'typescript';
 
 import type { Chunk, Extractor } from '../types.js';
-import { importPeer } from './missing-peer.js';
+import { importPeer, UnsupportedPeerDependencyError } from './missing-peer.js';
+
+/**
+ * The versions this scope can actually parse with, which is deliberately narrower than the
+ * `typescript` peer range in package.json. The peer range is wide because the dependency is
+ * optional and two of the three scopes never load it: a narrow range there makes charcheck
+ * uninstallable under npm for a project on an unsupported TypeScript, even one that only
+ * ever scans raw text. So installation stays open and the real constraint is enforced here,
+ * where it can be reported to the person who asked for the scope.
+ */
+export const SUPPORTED_TYPESCRIPT = '>=5 <7';
 
 export type ScriptLanguage = 'ts' | 'tsx' | 'js' | 'jsx';
 
@@ -32,7 +42,21 @@ export function languageForFile(file: string): ScriptLanguage | undefined {
 export async function loadTypeScript(scope: string): Promise<typeof typescript> {
   const loaded = await importPeer('typescript', scope, () => import('typescript'));
   // The package is CommonJS, so an interop default may wrap the namespace.
-  return ((loaded as { default?: typeof typescript }).default ?? loaded) as typeof typescript;
+  const ts = ((loaded as { default?: typeof typescript }).default ?? loaded) as typeof typescript;
+
+  // Tested by capability rather than by version, so a later major that keeps the API works
+  // without a release here, and one that drops it is caught whatever it calls itself.
+  const api = ts as Partial<typeof typescript>;
+  if (typeof api.createSourceFile !== 'function' || typeof api.forEachChild !== 'function') {
+    throw new UnsupportedPeerDependencyError(
+      'typescript',
+      scope,
+      api.version,
+      SUPPORTED_TYPESCRIPT,
+    );
+  }
+
+  return ts;
 }
 
 function scriptKindFor(ts: typeof typescript, language: ScriptLanguage): typescript.ScriptKind {

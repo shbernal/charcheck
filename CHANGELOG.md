@@ -8,6 +8,24 @@ While the version stays below 0.1.0, anything may change in any release.
 
 ## [Unreleased]
 
+### Fixed
+
+- charcheck could not be installed under npm in a project on TypeScript 7. The optional
+  `typescript` peer was declared as `>=5 <7`, which npm treats as a hard `ERESOLVE` conflict
+  rather than a warning, so the install failed even for projects that only scan raw text and
+  never load TypeScript at all. The peer range is now `>=5`, and the versions the `strings`
+  scope can genuinely parse with are enforced when that scope loads.
+- A `strings` rule on TypeScript 7 failed with a property access on `undefined`. TypeScript 7
+  moved the compiler API to `typescript/unstable/ast`, so the import succeeds and every call
+  against it does not. It now throws `UnsupportedPeerDependencyError`, naming the installed
+  version and the range that works. TypeScript 5 and 6 are unaffected. See
+  [docs/limitations.md](docs/limitations.md).
+
+### Added
+
+- `UnsupportedPeerDependencyError`, exported from the package root alongside
+  `MissingPeerDependencyError`.
+
 ## [0.0.1]
 
 First public release.

@@ -26,6 +26,7 @@ export { compileRule, RuleError } from './rule.js';
 export type { CompiledRule } from './rule.js';
 export {
   MissingPeerDependencyError,
+  UnsupportedPeerDependencyError,
   UnsupportedScopeError,
   scopeSupportsFile,
 } from './scope/index.js';

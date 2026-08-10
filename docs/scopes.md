@@ -21,9 +21,16 @@ than producing a module-not-found trace.
 
 The `strings` scope requires TypeScript 5 or 6. TypeScript 7 is the native compiler, and it
 no longer ships a JavaScript parser: `createSourceFile` and the AST walk this scope is built
-on moved out of the package root, so there is nothing to parse with in-process. The peer
-range is capped at `<7` to make that a resolution error at install time rather than a
-failure on the first file scanned.
+on moved out of the package root, so there is nothing to parse with in-process.
+
+The peer range is nonetheless the wide `>=5`, and the real constraint is checked when the
+scope loads. Capping the range at `<7` looked better, because it turns the problem into a
+resolution error before any file is scanned, but it was tried and it is worse: npm treats an
+unsatisfiable optional peer as a hard `ERESOLVE` and refuses to install charcheck at all,
+including for a project that only ever scans raw text and never loads TypeScript. Blocking
+those users to warn the ones using this scope is the wrong trade. The scope now throws
+`UnsupportedPeerDependencyError`, naming the installed version and the range that works, and
+only the rules that actually need a parser are affected.
 
 ## `strings`
 
