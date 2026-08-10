@@ -24,7 +24,7 @@ export class ConfigNotFoundError extends Error {
     super(
       `No charcheck config found, searching upward from ${from}.\n` +
         `Create charcheck.config.ts:\n\n` +
-        `  import { defineConfig } from '@shbernal/charcheck/config';\n\n` +
+        `  import { defineConfig } from 'charcheck/config';\n\n` +
         `  export default defineConfig({\n` +
         `    rules: [\n` +
         `      { id: 'no-em-dash', chars: ['\\u2014'], include: ['**/*.md'] },\n` +

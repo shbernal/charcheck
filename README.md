@@ -1,7 +1,7 @@
 # charcheck
 
 [![CI](https://github.com/shbernal/charcheck/actions/workflows/ci.yml/badge.svg)](https://github.com/shbernal/charcheck/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/@shbernal/charcheck)](https://www.npmjs.com/package/@shbernal/charcheck)
+[![npm](https://img.shields.io/npm/v/charcheck)](https://www.npmjs.com/package/charcheck)
 [![node](https://img.shields.io/badge/node-%3E%3D24-brightgreen)](https://nodejs.org)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
@@ -60,7 +60,7 @@ One character list, four surfaces, opposite policies about comments.
 ## Install
 
 ```bash
-pnpm add -D @shbernal/charcheck
+pnpm add -D charcheck
 ```
 
 Requires Node 24 or newer. That floor is deliberate: native type stripping is what lets a

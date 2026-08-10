@@ -3,7 +3,7 @@
 ## Install
 
 ```bash
-pnpm add -D @shbernal/charcheck
+pnpm add -D charcheck
 ```
 
 Requires Node 24 or newer. That floor is deliberate: native type stripping is what lets a

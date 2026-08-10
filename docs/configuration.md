@@ -11,7 +11,7 @@ For types and editor completion:
 
 ```ts
 // charcheck.config.ts
-import { defineConfig } from '@shbernal/charcheck/config';
+import { defineConfig } from 'charcheck/config';
 
 export default defineConfig({
   rules: [{ id: 'no-em-dash', chars: ['\u2014'], include: ['**/*.md'] }],
@@ -48,7 +48,7 @@ A fix may be a function of its context, which is the enclosing string literal fo
 and `markup`, and the enclosing line for `raw`:
 
 ```js
-import { strategies } from '@shbernal/charcheck/config';
+import { strategies } from 'charcheck/config';
 
 {
   id: 'clause-separator',

@@ -4,7 +4,7 @@ Optional and outside core. Every preset is a function taking the targeting, beca
 ban is general but where to ban it never is.
 
 ```js
-import { noAiPunctuation, invisibles } from '@shbernal/charcheck/presets';
+import { noAiPunctuation, invisibles } from 'charcheck/presets';
 
 export default {
   rules: [

@@ -1,5 +1,5 @@
 /**
- * The `@shbernal/charcheck/config` entry point: everything a config file needs, and
+ * The `charcheck/config` entry point: everything a config file needs, and
  * nothing that would drag in the CLI.
  */
 

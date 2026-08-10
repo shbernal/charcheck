@@ -4,7 +4,7 @@ The library is a real product surface, not a side effect of the CLI. It touches 
 state, writes nothing, and never exits.
 
 ```ts
-import { scan } from '@shbernal/charcheck';
+import { scan } from 'charcheck';
 
 const findings = await scan({
   root: process.cwd(),
