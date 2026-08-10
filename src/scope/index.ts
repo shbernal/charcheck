@@ -1,16 +1,19 @@
 import type { Extractor, Scope } from '../types.js';
+import { MARKUP_EXTENSIONS, markupExtractor } from './markup.js';
 import { rawExtractor } from './raw.js';
 import { STRINGS_EXTENSIONS, stringsExtractor } from './strings.js';
 
 export { MissingPeerDependencyError } from './missing-peer.js';
+export { DEFAULT_TEXT_ATTRIBUTES } from './markup.js';
 
 /**
  * The scope table. A scope is an extractor, not a branch in the scanner, so a new surface
  * is a new file plus one entry here.
  */
-const EXTRACTORS: Partial<Record<Scope, Extractor>> = {
+const EXTRACTORS: Record<Scope, Extractor> = {
   raw: rawExtractor,
   strings: stringsExtractor,
+  markup: markupExtractor,
 };
 
 export class UnsupportedScopeError extends Error {
@@ -26,6 +29,8 @@ export function getExtractor(scope: Scope): Extractor {
   return extractor;
 }
 
+export const SCOPES = Object.keys(EXTRACTORS) as Scope[];
+
 /**
  * Extensions each parser-backed scope understands. `raw` has no restriction, so it is
  * absent here. Used to reject, at config load time, a rule whose globs can only ever match
@@ -33,6 +38,7 @@ export function getExtractor(scope: Scope): Extractor {
  */
 export const SCOPE_EXTENSIONS: Partial<Record<Scope, readonly string[]>> = {
   strings: STRINGS_EXTENSIONS,
+  markup: MARKUP_EXTENSIONS,
 };
 
 export function scopeSupportsFile(scope: Scope, file: string): boolean {
