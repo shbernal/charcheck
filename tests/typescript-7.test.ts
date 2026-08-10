@@ -9,6 +9,7 @@
  */
 
 import { readdirSync, readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -119,6 +120,55 @@ describe('the scanner reader, against the syntax tree reader', () => {
     it('with a brace inside a character class', () => {
       expect(agree('const r = /[{}]/; const t = `a ${1} b`;')).toEqual(['`a ${', '} b`']);
     });
+
+    // `!` is both the non-null assertion and logical not, and the two disagree about the
+    // `/` that follows. Read as a regular expression, the `/ 2` of `a! / 2` runs to the end
+    // of the file and every literal after it goes unread: a clean report over unscanned
+    // text, which is the one result this tool must never produce.
+    describe('after an exclamation mark, which is two operators', () => {
+      it('divides when it asserts non-null', () => {
+        expect(agree(`const n = a! / 2; const s = "kept";`)).toEqual([`"kept"`]);
+      });
+
+      it('opens a pattern when it negates', () => {
+        expect(agree(String.raw`if (!/["']/.test(x)) { const s = "kept"; }`)).toEqual([`"kept"`]);
+      });
+
+      it('divides after an asserted call', () => {
+        expect(agree(`const n = f()! / 2; const s = "kept";`)).toEqual([`"kept"`]);
+      });
+    });
+
+    // The previous token cannot tell `class C {` from `const c = {`, and their closing
+    // braces disagree about the `/` after them. The keyword earlier in the statement is
+    // what separates them.
+    describe('after the brace of a declaration body, which ends a statement', () => {
+      const declarations = [
+        ['a class', 'class C {}'],
+        ['an abstract class', 'abstract class C {}'],
+        ['a decorated class', '@dec class C {}'],
+        ['an exported default class', 'export default class C {}'],
+        ['an interface', 'interface I { a: string }'],
+        ['an enum', 'enum E { A }'],
+        ['a namespace', 'namespace N {}'],
+        ['a type literal', 'type T = { a: 1 }'],
+      ] as const;
+
+      for (const [name, declaration] of declarations) {
+        it(name, () => {
+          expect(agree(`${declaration}\n/["']/.test(y);\nconst s = "kept";`)).toEqual([`"kept"`]);
+        });
+      }
+    });
+
+    // Those same keywords are all legal property names, and a property is not a header.
+    describe('after a property named like a declaration keyword', () => {
+      it('still divides', () => {
+        expect(
+          agree(`const o = { type: 1, k: { a: 2 } }; const n = 4 / 2; const s = "kept";`),
+        ).toEqual([`"kept"`]);
+      });
+    });
   });
 
   describe('typescript syntax the scanner has to walk past', () => {
@@ -149,6 +199,53 @@ describe('the scanner reader, against the syntax tree reader', () => {
       expect(read(fromScanner, source), file).toEqual(read(fromAst, source));
     }
   });
+
+  // Malformed source is the normal state of a file in a pre-commit hook, and it is where
+  // two readers are least likely to agree. Neither reader reports an empty literal, which
+  // is the only thing they produced differently here.
+  describe('agrees on source that does not parse', () => {
+    const broken = [
+      ['an unterminated string', 'const a = "oops\nconst k = "kept";'],
+      ['an unterminated template', 'const a = `oops ${ x\nconst k = "kept";'],
+      ['a stray closing brace', 'const a = 1; }\nconst k = "kept";'],
+      ['a stray opening paren', 'f( ; const k = "kept";'],
+      ['a lone operator', 'const a = ; const k = "kept";'],
+    ] as const;
+
+    for (const [name, source] of broken) {
+      it(name, () => {
+        expect(read(fromScanner, source)).toEqual(read(fromAst, source));
+      });
+    }
+  });
+});
+
+/**
+ * The same property against real code, at a scale no hand-written case reaches: the
+ * TypeScript compiler is nine megabytes of dense JavaScript with several thousand regular
+ * expressions in it.
+ *
+ * This layer and the cases above catch different things, which is why both are here. Every
+ * ambiguity fixed in this file was invisible to this corpus, because shipped JavaScript
+ * carries no non-null assertions and almost never opens a statement with a regular
+ * expression. What the corpus does is hold the token walk to real-world breadth, where a
+ * hand-written case only ever covers what its author thought of.
+ */
+describe('the scanner reader, against the syntax tree reader, over real packages', () => {
+  const require = createRequire(import.meta.url);
+  const packages = ['typescript', '@vue/compiler-sfc', 'tinyglobby', 'picocolors'];
+
+  for (const name of packages) {
+    it(`agrees on ${name}`, () => {
+      const file = require.resolve(name);
+      const source = readFileSync(file, 'utf8');
+      const viaAst = fromAst(source, 'js', file, 'strings');
+      // Compared as ranges rather than as slices: these files hold tens of thousands of
+      // literals, and a failed slice comparison prints all of them.
+      expect(viaAst.length).toBeGreaterThan(50);
+      expect(fromScanner(source, 'js', file, 'strings')).toEqual(viaAst);
+    });
+  }
 });
 
 describe('jsx, which a scanner cannot be told it is inside', () => {

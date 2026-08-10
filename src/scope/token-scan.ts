@@ -55,6 +55,15 @@ export interface TokenKinds {
   MinusMinusToken: number;
   EqualsGreaterThanToken: number;
   SemicolonToken: number;
+  ColonToken: number;
+  CommaToken: number;
+  ExclamationToken: number;
+  ClassKeyword: number;
+  InterfaceKeyword: number;
+  EnumKeyword: number;
+  NamespaceKeyword: number;
+  ModuleKeyword: number;
+  TypeKeyword: number;
   ThisKeyword: number;
   SuperKeyword: number;
   TrueKeyword: number;
@@ -127,6 +136,37 @@ function opensBlock(kinds: TokenKinds): Set<number> {
 }
 
 /**
+ * The keywords that introduce a declaration whose `{` opens a body rather than a value.
+ * The previous token alone cannot tell them apart: `class C {` and `const c = {` both put a
+ * `{` after an identifier or an `=`, and only the keyword earlier in the statement says
+ * which. Their `}` ends a statement, so a regular expression may follow it.
+ *
+ * `type` is here for `type T = { … }`, where the braces are a type literal and not a value
+ * however much they look like one.
+ */
+function opensBody(kinds: TokenKinds): Set<number> {
+  return new Set([
+    kinds.ClassKeyword,
+    kinds.InterfaceKeyword,
+    kinds.EnumKeyword,
+    kinds.NamespaceKeyword,
+    kinds.ModuleKeyword,
+    kinds.TypeKeyword,
+  ]);
+}
+
+/**
+ * Tokens that end the reach of a pending declaration keyword.
+ *
+ * Every one of these names is also a legal property name, so `{ type: 1 }` and `{ class: 1 }`
+ * scan the keyword rather than an identifier. A property name is followed by `:` or `,`, and
+ * a declaration name never is, which separates the two cheaply.
+ */
+function endsHeader(kinds: TokenKinds): Set<number> {
+  return new Set([kinds.SemicolonToken, kinds.ColonToken, kinds.CommaToken]);
+}
+
+/**
  * Every string and template literal range in `source`, in source order, as absolute offsets.
  *
  * `scanner` must already be positioned at the start of `source` with trivia skipped.
@@ -142,6 +182,8 @@ export function literalRanges(scanner: TokenScanner, kinds: TokenKinds): Range[]
   const expressionEnders = endsExpression(kinds);
   const heads = clauseHeads(kinds);
   const blockOpeners = opensBlock(kinds);
+  const bodyKeywords = opensBody(kinds);
+  const headerEnders = endsHeader(kinds);
 
   const ranges: Range[] = [];
   /** For each open `(`, whether it is a clause header. */
@@ -154,6 +196,8 @@ export function literalRanges(scanner: TokenScanner, kinds: TokenKinds): Range[]
   let previous: number | undefined;
   /** Whether a `/` here would open a regular expression. */
   let regexAllowed = true;
+  /** Whether a declaration keyword is still waiting for the `{` that opens its body. */
+  let inHeader = false;
 
   for (;;) {
     let token = scanner.scan();
@@ -161,6 +205,13 @@ export function literalRanges(scanner: TokenScanner, kinds: TokenKinds): Range[]
 
     if (token === kinds.SlashToken || token === kinds.SlashEqualsToken) {
       if (regexAllowed) token = scanner.reScanSlashToken();
+    } else if (token === kinds.ExclamationToken) {
+      // Both the non-null assertion and logical not, and the two disagree about the `/`
+      // after them: `a! / 2` divides, `!/re/.test(x)` does not. Which one this is, is
+      // exactly what the token before it already decided, so leave that decision standing
+      // rather than making a second one.
+      previous = token;
+      continue;
     } else if (token === kinds.OpenParenToken) {
       parens.push(previous !== undefined && heads.has(previous));
     } else if (token === kinds.CloseParenToken) {
@@ -169,7 +220,8 @@ export function literalRanges(scanner: TokenScanner, kinds: TokenKinds): Range[]
       previous = token;
       continue;
     } else if (token === kinds.OpenBraceToken) {
-      braces.push(previous === undefined || blockOpeners.has(previous));
+      braces.push(inHeader || previous === undefined || blockOpeners.has(previous));
+      inHeader = false;
     } else if (token === kinds.CloseBraceToken) {
       if (templates.length > 0 && templates[templates.length - 1] === braces.length) {
         // The `}` that closes a `${…}`: the rest of the template is text, not code, and
@@ -183,10 +235,18 @@ export function literalRanges(scanner: TokenScanner, kinds: TokenKinds): Range[]
       }
     }
 
-    if (literal.has(token))
-      ranges.push({ start: scanner.getTokenStart(), end: scanner.getTokenEnd() });
+    if (literal.has(token)) {
+      const start = scanner.getTokenStart();
+      const end = scanner.getTokenEnd();
+      // Malformed source yields empty literals, and the two readers disagree about how
+      // many. None of them can hold a banned character, so neither reader reports one.
+      if (end > start) ranges.push({ start, end });
+    }
     if (token === kinds.TemplateHead || token === kinds.TemplateMiddle)
       templates.push(braces.length);
+
+    if (bodyKeywords.has(token)) inHeader = true;
+    else if (headerEnders.has(token)) inHeader = false;
 
     regexAllowed = !expressionEnders.has(token);
     previous = token;

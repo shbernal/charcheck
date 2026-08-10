@@ -49,6 +49,19 @@ While the version stays below 0.1.0, anything may change in any release.
 
 ### Fixed
 
+- On TypeScript 7, a `/` after a non-null assertion was read as opening a regular
+  expression rather than dividing. `const n = a! / 2` therefore consumed the rest of the
+  file as a pattern, and every literal after it went unreported: a clean run over unscanned
+  text. `!` is both the non-null assertion and logical not, and which one it is, is settled
+  by the token before it, so that decision is now left standing rather than made twice.
+- On TypeScript 7, the closing brace of a `class`, `interface`, `enum`, `namespace`,
+  `module` or `type` body was treated as ending a value rather than a statement, so a
+  regular expression opening the next statement was read as a division and the quotes
+  inside it opened a literal over real code. The declaration keyword is now tracked as far
+  as the `{` it introduces. Those keywords are all legal property names, so `{ type: 1 }` is
+  still a value.
+- On TypeScript 7, malformed source could yield a different number of empty literals from
+  the two readers. Neither reports one now; an empty range cannot hold a character.
 - The scopes table said `markup` needs only `@vue/compiler-sfc`. It reads script blocks and
   interpolation expressions the way `strings` does, so it loads `typescript` as well.
 

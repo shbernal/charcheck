@@ -105,11 +105,16 @@ export function astReader(ts: typeof typescript): LiteralReader {
         case ts.SyntaxKind.NoSubstitutionTemplateLiteral:
         case ts.SyntaxKind.TemplateHead:
         case ts.SyntaxKind.TemplateMiddle:
-        case ts.SyntaxKind.TemplateTail:
+        case ts.SyntaxKind.TemplateTail: {
           // The raw source slice, never the cooked value: an escape sequence makes the two
           // different lengths and every position computed against the cooked one is wrong.
-          ranges.push({ start: node.getStart(sourceFile), end: node.getEnd() });
+          const start = node.getStart(sourceFile);
+          const end = node.getEnd();
+          // Malformed source yields empty literals, and the two readers disagree about how
+          // many. None of them can hold a banned character, so neither reader reports one.
+          if (end > start) ranges.push({ start, end });
           break;
+        }
         default:
           break;
       }

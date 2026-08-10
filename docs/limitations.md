@@ -23,8 +23,15 @@ syntax tree. Two consequences:
 - The scanner reads `typescript/unstable/ast`, which upstream marks unstable. A rename there
   is caught and reported rather than silently matching nothing, but it would still need a
   release here to fix.
+- A scanner has no parser context, so where `/` divides and where it opens a pattern is
+  decided by the token walk rather than known. The decision is right on everything the
+  suite covers, which is the TypeScript compiler's own nine megabytes of source plus a set
+  of cases written against each ambiguous position. One position is genuinely undecidable
+  from tokens alone and is read the other way: a labelled block, `label: { … }`, is taken
+  for an object literal, so a regular expression opening the statement after its `}` is
+  read as a division. Nothing else known diverges.
 
-Neither applies on TypeScript 5 or 6, which are read through the syntax tree.
+None of this applies on TypeScript 5 or 6, which are read through the syntax tree.
 
 ## Things you have to exclude by hand
 
