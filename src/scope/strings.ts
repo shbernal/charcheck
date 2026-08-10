@@ -148,17 +148,27 @@ export function scannerReader(
 }
 
 /**
+ * The reader, once. Which one to use is decided from the installed package, which cannot
+ * change inside a run, and every file in a scan would otherwise repeat the import and the
+ * token-kind resolution behind it. Only a success is kept: a failure names the scope that
+ * asked, and the next scope to ask deserves its own name in the message.
+ */
+let cachedReader: LiteralReader | undefined;
+
+/**
  * Loads the peer and picks the reader by what it can do, not by what it calls itself, so a
  * major that keeps an API keeps working without a release here.
  */
 export async function loadLiteralReader(scope: string): Promise<LiteralReader> {
+  if (cachedReader !== undefined) return cachedReader;
+
   const loaded = await importPeer('typescript', scope, () => import('typescript'));
   // The package is CommonJS, so an interop default may wrap the namespace.
   const ts = ((loaded as { default?: typeof typescript }).default ?? loaded) as typeof typescript;
 
   const api = ts as Partial<typeof typescript>;
   if (typeof api.createSourceFile === 'function' && typeof api.forEachChild === 'function') {
-    return astReader(ts);
+    return (cachedReader = astReader(ts));
   }
 
   // TypeScript 7 and later: the parser is gone from the package root and a scanner is what
@@ -169,7 +179,9 @@ export async function loadLiteralReader(scope: string): Promise<LiteralReader> {
     | ModernAst
     | undefined;
   if (typeof scanning?.createScanner === 'function') {
-    return scannerReader(scanning as Required<Pick<ModernAst, 'createScanner'>> & ModernAst);
+    return (cachedReader = scannerReader(
+      scanning as Required<Pick<ModernAst, 'createScanner'>> & ModernAst,
+    ));
   }
 
   throw new UnsupportedPeerDependencyError('typescript', scope, api.version, SUPPORTED_TYPESCRIPT);
