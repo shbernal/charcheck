@@ -4,9 +4,12 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-While the version stays below 0.1.0, anything may change in any release.
+While the version stays below 1.0.0, a minor release may make a breaking change, and says so
+against every entry that does. A patch release does not.
 
 ## [Unreleased]
+
+## [0.1.0]
 
 ### Added
 
@@ -131,6 +134,7 @@ First public release.
 `markup` covers `.vue` only, and there is no Markdown code-fence awareness for findings.
 The full list is in [docs/limitations.md](docs/limitations.md).
 
-[unreleased]: https://github.com/shbernal/charcheck/compare/v0.0.2...HEAD
+[unreleased]: https://github.com/shbernal/charcheck/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/shbernal/charcheck/compare/v0.0.2...v0.1.0
 [0.0.2]: https://github.com/shbernal/charcheck/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/shbernal/charcheck/releases/tag/v0.0.1
