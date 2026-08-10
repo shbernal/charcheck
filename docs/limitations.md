@@ -42,5 +42,18 @@ Neither applies on TypeScript 5 or 6, which are read through the syntax tree.
 
 If charcheck reports success on a file you know contains a banned character, the usual
 cause is scope rather than any of the above. A rule with `scope: 'strings'` cannot see a
-comment, and a rule whose `include` does not name a dotted directory will never open one.
-See [Scopes](scopes.md).
+comment. See [Scopes](scopes.md).
+
+If the rule never opened the file at all, a warning on stderr says so:
+
+```
+charcheck: rule "no-em-dash-in-markup" matched no files: site/**/*.vue. Check the
+globs; a dotted directory is only entered when a pattern names it.
+```
+
+That last clause is the usual cause. `site/**/*.vue` does not reach
+`site/.vitepress/theme/Card.vue`, because no pattern names `.vitepress`, and nobody expects
+`docs/**` to walk into `.github` either. Name the directory: `site/.vitepress/**/*.vue`.
+
+The warning does not fire under `--staged` for a rule that simply had nothing staged. It
+describes the globs, not the commit.

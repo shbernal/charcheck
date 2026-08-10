@@ -28,7 +28,10 @@ export interface ScanOptions extends ExtractorOptions {
   ignore?: readonly string[];
   /** How many files to read at once. */
   concurrency?: number;
-  /** Called for a file that could not be read. A run over a tree continues regardless. */
+  /**
+   * Called for a file that could not be read, and for a rule whose globs matched nothing.
+   * A run continues regardless.
+   */
   onWarning?: (message: string) => void;
   /**
    * Supplies a file's content instead of the filesystem, given its root-relative path.
@@ -73,6 +76,18 @@ async function planScan(options: ScanOptions): Promise<Map<string, Rule[]>> {
 
   for (const [index, files] of matched.entries()) {
     const rule = rules[index]!;
+
+    // A rule that reaches nothing is the failure this tool is least able to show you:
+    // its output is a clean run. Reported before the `files` restriction is applied,
+    // because under `--staged` a rule matching nothing staged is the normal case and
+    // says nothing about the globs.
+    if (files.length === 0) {
+      options.onWarning?.(
+        `rule "${rule.id}" matched no files: ${rule.include.join(', ')}. Check the globs; ` +
+          `a dotted directory is only entered when a pattern names it.`,
+      );
+    }
+
     for (const file of files) {
       if (restriction && !restriction.has(file)) continue;
       const existing = plan.get(file);

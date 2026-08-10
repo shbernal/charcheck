@@ -114,6 +114,52 @@ describe('scan', () => {
   });
 });
 
+/**
+ * A rule that reaches nothing produces a clean run, which is the one failure the report
+ * cannot show on its own. The commonest cause by far is a dotted directory, which is only
+ * walked into when a pattern names it.
+ */
+describe('a rule whose globs match nothing', () => {
+  const collect = async (
+    rules: Parameters<typeof scan>[0]['rules'],
+    files?: readonly string[],
+  ): Promise<string[]> => {
+    const warnings: string[] = [];
+    await scan({
+      root,
+      rules,
+      onWarning: (message) => warnings.push(message),
+      ...(files ? { files } : {}),
+    });
+    return warnings;
+  };
+
+  it('is warned about, naming the rule and its patterns', async () => {
+    const warnings = await collect([rule({ id: 'vue', include: ['site/**/*.vue'] })]);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain('"vue"');
+    expect(warnings[0]).toContain('site/**/*.vue');
+    expect(warnings[0]).toContain('dotted directory');
+  });
+
+  it('is the case a pattern missing a dotted directory falls into', async () => {
+    await write('.vitepress/theme/Card.vue', `text ${EM_DASH} here\n`);
+
+    expect(await collect([rule({ id: 'blind', include: ['**/*.vue'] })])).toHaveLength(1);
+    expect(await collect([rule({ id: 'naming', include: ['.vitepress/**/*.vue'] })])).toEqual([]);
+  });
+
+  it('stays quiet for a rule that matched, whatever the findings were', async () => {
+    expect(await collect([rule({ id: 'md', include: ['docs/clean.md'] })])).toEqual([]);
+  });
+
+  // Under `--staged` the restriction is the staged file list, and a rule matching nothing
+  // staged is the ordinary case. Warning there would fire on almost every commit.
+  it('stays quiet when it was the file restriction that emptied the plan', async () => {
+    expect(await collect([rule({ id: 'md', include: ['**/*.md'] })], ['src/app.ts'])).toEqual([]);
+  });
+});
+
 describe('path normalization', () => {
   it('converts separators and strips a leading dot slash', () => {
     expect(toPosix('a\\b\\c.ts')).toBe('a/b/c.ts');

@@ -17,6 +17,12 @@ While the version stays below 0.1.0, anything may change in any release.
   keeps either one needs no release here. TypeScript 5 and 6 are read exactly as before.
   The suite installs both majors and requires the two readers to return identical ranges
   over a corpus of pathological sources and every file in this repository.
+- A rule whose globs match no file now warns on stderr, naming the rule and its patterns.
+  That rule was previously indistinguishable from a rule that passed, which is the one
+  failure the report cannot show on its own. The commonest cause is a dotted directory:
+  `site/**/*.vue` never reaches `site/.vitepress/theme/Card.vue`. The warning is not raised
+  under `--staged` for a rule that merely had nothing staged, since it describes the globs
+  rather than the commit.
 - `JsxUnsupportedError`, exported from the package root. `.tsx` and `.jsx` cannot be read by
   a scanner, which has no way to know it is inside a JSX element, so on TypeScript 7 those
   files are refused with an error naming the file rather than mis-read. They are unaffected
