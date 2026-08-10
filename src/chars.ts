@@ -44,6 +44,23 @@ export const NARROW_NO_BREAK_SPACE = cp(0x202f);
 export const WORD_JOINER = cp(0x2060);
 export const BYTE_ORDER_MARK = cp(0xfeff);
 
+/**
+ * Code points that render as nothing. A finding on one of these needs its name printed,
+ * because an excerpt of the line looks perfectly ordinary and the caret appears to point
+ * at empty space.
+ */
+const INVISIBLE_CODE_POINTS = new Set([
+  0x00ad, 0x200b, 0x200c, 0x200d, 0x200e, 0x200f, 0x2060, 0xfeff, 0x202a, 0x202b, 0x202c, 0x202d,
+  0x202e, 0x2066, 0x2067, 0x2068, 0x2069,
+]);
+
+export function isInvisibleText(value: string): boolean {
+  if (value.length === 0) return false;
+  return [...value].every(
+    (char) => char.trim().length === 0 || INVISIBLE_CODE_POINTS.has(char.codePointAt(0)!),
+  );
+}
+
 /** A character class body, escaped for use inside `[...]`. */
 export function charClass(chars: readonly string[]): string {
   return chars.map((char) => `\\u${char.codePointAt(0)!.toString(16).padStart(4, '0')}`).join('');

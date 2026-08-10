@@ -1,9 +1,9 @@
-import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { glob } from 'tinyglobby';
 
 import { relativeToRoot } from './paths.js';
+import { readTextFile } from './read.js';
 import { scanText } from './scan.js';
 import type { ExtractorOptions, Finding, Rule } from './types.js';
 
@@ -27,6 +27,8 @@ export interface ScanOptions extends ExtractorOptions {
   ignore?: readonly string[];
   /** How many files to read at once. */
   concurrency?: number;
+  /** Called for a file that could not be read. A run over a tree continues regardless. */
+  onWarning?: (message: string) => void;
 }
 
 async function filesForRule(
@@ -103,17 +105,12 @@ export async function scan(options: ScanOptions): Promise<Finding[]> {
   const entries = [...plan.entries()];
 
   const perFile = await mapWithLimit(entries, options.concurrency ?? 16, async ([file, rules]) => {
-    let text: string;
-    try {
-      text = await readFile(path.join(options.root, file), 'utf8');
-    } catch (cause) {
-      const code = (cause as { code?: string }).code;
-      // A path that vanished between globbing and reading is not an error worth failing
-      // the run over; a staged-files run races with the working tree by nature.
-      if (code === 'ENOENT' || code === 'EISDIR') return [];
-      throw cause;
+    const outcome = await readTextFile(path.join(options.root, file));
+    if (!outcome.ok) {
+      if (!outcome.missing) options.onWarning?.(`cannot read ${file}: ${outcome.reason}`);
+      return [];
     }
-    return scanText(text, file, rules, { textAttributes: options.textAttributes });
+    return scanText(outcome.text, file, rules, { textAttributes: options.textAttributes });
   });
 
   return perFile
