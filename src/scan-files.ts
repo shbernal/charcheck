@@ -89,7 +89,7 @@ async function mapWithLimit<T, R>(
   limit: number,
   run: (item: T) => Promise<R>,
 ): Promise<R[]> {
-  const results = new Array<R>(items.length);
+  const results: R[] = [];
   let next = 0;
   const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
     for (let index = next++; index < items.length; index = next++) {

@@ -48,8 +48,8 @@
   "scripts": {
     "build": "tsc -b tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint . --max-warnings 0",
-    "format": "prettier --check .",
+    "lint": "oxlint --max-warnings 0",
+    "format": "oxfmt --check",
     "test": "vitest run",
     "lint:chars": "node dist/cli.js",
     "check": "pnpm run typecheck && pnpm run lint && pnpm run format && pnpm run test && pnpm run build && pnpm run lint:chars",
@@ -72,13 +72,11 @@
     }
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.1",
     "@types/node": "^24.10.1",
     "@vue/compiler-sfc": "^3.5.24",
-    "eslint": "^9.39.1",
-    "prettier": "^3.6.2",
+    "oxfmt": "^0.62.0",
+    "oxlint": "^1.77.0",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.48.1",
     "vitest": "^3.2.4"
   }
 }

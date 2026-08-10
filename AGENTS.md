@@ -24,7 +24,11 @@ pnpm run check       # the single gate before any commit
 build is in the middle because `lint:chars` runs the freshly built binary.
 
 Individually: `pnpm run typecheck`, `pnpm run lint`, `pnpm run format` (check only, use
-`pnpm exec prettier --write .` to fix), `pnpm test`, `pnpm run build`, `pnpm run lint:chars`.
+`pnpm exec oxfmt` to fix), `pnpm test`, `pnpm run build`, `pnpm run lint:chars`.
+
+Lint is oxlint (`.oxlintrc.json`) and formatting is oxfmt (`.oxfmtrc.json`). Note that oxfmt
+formats JavaScript and TypeScript only, so Markdown, JSON and YAML in this repo are not
+machine formatted; keep them tidy by hand.
 
 Node `>=24` and pnpm via Corepack. The node floor is deliberate: it buys native type
 stripping, which is what lets a user's `charcheck.config.ts` load with no bundler and no

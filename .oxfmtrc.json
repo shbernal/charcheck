@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "singleQuote": true,
+  "semi": true,
+  "printWidth": 100,
+  "trailingComma": "all",
+  "sortPackageJson": false,
+  "ignorePatterns": [
+    "dist/",
+    "node_modules/",
+    "coverage/",
+    "pnpm-lock.yaml",
+    "EPHEMERAL-PLAN/",
+    "tests/fixtures/"
+  ]
+}

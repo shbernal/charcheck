@@ -1,7 +1,8 @@
 import { readFile } from 'node:fs/promises';
 
 export type ReadOutcome =
-  { ok: true; text: string } | { ok: false; reason: string; missing: boolean };
+  | { ok: true; text: string }
+  | { ok: false; reason: string; missing: boolean };
 
 /**
  * Read a file as UTF-8, turning every failure into a value.
