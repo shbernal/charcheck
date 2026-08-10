@@ -40,7 +40,9 @@ async function filesForRule(
     ignore: [...ignore, ...(rule.exclude ?? [])],
     onlyFiles: true,
     absolute: false,
-    dot: true,
+    // A dotted directory is scanned only when a pattern names it. Nobody expects
+    // `docs/**` to walk into `.github`.
+    dot: false,
     expandDirectories: false,
   });
 }

@@ -1,0 +1,54 @@
+import { scan } from '../scan-files.js';
+import type { ScanOptions } from '../scan-files.js';
+import type { Finding, Rule } from '../types.js';
+import { VIRTUAL_PATTERN } from './schema.js';
+import type { LoadedConfig } from './types.js';
+
+/**
+ * Rules targeting a real file, with any virtual pattern removed. A rule that targets only
+ * a virtual surface, such as a commit message, is not part of a file scan at all.
+ */
+export function fileRules(rules: readonly Rule[]): Rule[] {
+  const result: Rule[] = [];
+  for (const rule of rules) {
+    const include = rule.include.filter((pattern) => !VIRTUAL_PATTERN.test(pattern));
+    if (include.length === 0) continue;
+    result.push(include.length === rule.include.length ? rule : { ...rule, include });
+  }
+  return result;
+}
+
+/** Rules that target a named virtual surface, such as `<commit-msg>`. */
+export function virtualRules(rules: readonly Rule[], target: string): Rule[] {
+  const pattern = `<${target}>`;
+  return rules.filter((rule) => rule.include.includes(pattern));
+}
+
+export interface ResolveOptions {
+  /** Restrict to these paths. Still intersected with each rule's globs. */
+  files?: readonly string[];
+  /** Overrides the config's directory. The CLI has no reason to use this. */
+  root?: string;
+}
+
+/**
+ * Config to scan options. Globs resolve against the config file's directory, never the
+ * cwd, so running from a subdirectory gives identical results.
+ */
+export function toScanOptions(loaded: LoadedConfig, options: ResolveOptions = {}): ScanOptions {
+  const { config } = loaded;
+  return {
+    root: options.root ?? loaded.root,
+    rules: fileRules(config.rules),
+    ...(config.ignore ? { ignore: config.ignore } : {}),
+    ...(config.markup?.textAttributes ? { textAttributes: config.markup.textAttributes } : {}),
+    ...(options.files ? { files: options.files } : {}),
+  };
+}
+
+export async function scanWithConfig(
+  loaded: LoadedConfig,
+  options: ResolveOptions = {},
+): Promise<Finding[]> {
+  return scan(toScanOptions(loaded, options));
+}

@@ -14,6 +14,24 @@ export const EN_DASH = cp(0x2013);
 export const EM_DASH = cp(0x2014);
 export const HORIZONTAL_BAR = cp(0x2015);
 
+/** Punctuation a word processor or a model substitutes for the plain ASCII form. */
+export const LEFT_SINGLE_QUOTE = cp(0x2018);
+export const RIGHT_SINGLE_QUOTE = cp(0x2019);
+export const LEFT_DOUBLE_QUOTE = cp(0x201c);
+export const RIGHT_DOUBLE_QUOTE = cp(0x201d);
+export const HORIZONTAL_ELLIPSIS = cp(0x2026);
+
+/** Bidirectional formatting controls. Invisible, and a way to disguise text. */
+export const LEFT_TO_RIGHT_EMBEDDING = cp(0x202a);
+export const RIGHT_TO_LEFT_EMBEDDING = cp(0x202b);
+export const POP_DIRECTIONAL_FORMATTING = cp(0x202c);
+export const LEFT_TO_RIGHT_OVERRIDE = cp(0x202d);
+export const RIGHT_TO_LEFT_OVERRIDE = cp(0x202e);
+export const LEFT_TO_RIGHT_ISOLATE = cp(0x2066);
+export const RIGHT_TO_LEFT_ISOLATE = cp(0x2067);
+export const FIRST_STRONG_ISOLATE = cp(0x2068);
+export const POP_DIRECTIONAL_ISOLATE = cp(0x2069);
+
 /** Invisibles and lookalike spaces. */
 export const NO_BREAK_SPACE = cp(0x00a0);
 export const SOFT_HYPHEN = cp(0x00ad);
