@@ -1,18 +1,20 @@
 # AGENTS.md
 
-## Pre-Release Project Guidance
+## Project stage
 
-This project is published but still below 0.1.0:
+0.1.0 is published, so compatibility is a real constraint now, but a narrow one:
 
-- Treat the project as pre-release and free to change.
-- Do not preserve backwards compatibility unless Santiago explicitly asks for it.
-- Do not defer to the prior architecture when it conflicts with the current goal.
-- Existing code, docs, and plans are context, not constraints.
-- Prefer the simplest coherent architecture for the current project direction.
+- A change to `Rule`, `Scope`, `FixContext`, `ScanOptions` or an exported error class is a
+  break. It needs a minor version and a `CHANGELOG.md` entry that says so out loud. Batch
+  such changes into one minor rather than spending a version on each.
+- Everything else is still free to change. Below 1.0 a break is allowed, it is only never
+  allowed to be silent.
+- Do not defer to the prior architecture when it conflicts with the current goal. Existing
+  code, docs, and plans are context, not constraints, and the simplest coherent architecture
+  for the current direction wins.
 
-Once the project reaches 1.0, compatibility and migration concerns become real project
-constraints and must be evaluated before breaking changes. Until then, note breaking
-changes in `CHANGELOG.md` rather than working around them.
+Once the project reaches 1.0, migration concerns become real too and must be evaluated
+before any break.
 
 ## Read this first
 

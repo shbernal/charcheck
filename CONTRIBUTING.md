@@ -98,6 +98,16 @@ Not closed forever, but reopening one needs a reason beyond preference:
 - **A scope is an extractor, not a branch.** Every scope returns the regions of a file its
   rules may match inside, and the scanner has no per-scope code. Adding a surface is a new
   file in `src/scope/` plus one table entry.
+- **`Scope` stays a closed union, and every surface ships in core.** A scope is a curated
+  judgment about what counts as checkable text, not a parser wrapper: `markup` needed an
+  attribute allowlist before it was worth having. A registry of third-party extractors, with
+  `scope` widened to `Scope | string`, is therefore rejected, and not only on taste. A
+  registered scope would have no row in the extension table, and `scopeSupportsFile` reads a
+  missing row as "no restriction", so it would silently opt out of the one config check
+  written to catch a rule that can never match a file its scope can read. If a rule ever
+  needs to carry its own extractor, that takes the shape `fix` already has, a union with a
+  function, rather than a registry. It widens `Rule`, so it costs a minor and waits for a
+  real request.
 - **Fixes are per rule and may be functions**, because whether a replacement is safe depends
   on the surface. A finding therefore carries its resolved `replacement`.
 - **Positions are 1-based UTF-16 code units**, matching ESLint and the language server
@@ -110,9 +120,9 @@ Not closed forever, but reopening one needs a reason beyond preference:
 
 ## Adding a scope
 
-The most likely contribution. A new surface is a new file in `src/scope/` exporting an
-extractor, one entry in the scope table, an optional peer dependency declared in
-`package.json` and imported lazily (never at module top level), fixtures under
-`tests/fixtures/`, and a row in the table in `docs/scopes.md`.
+The most likely contribution, and by the decision above the only way a surface arrives. A new
+surface is a new file in `src/scope/` exporting an extractor, one entry in the scope table, an
+optional peer dependency declared in `package.json` and imported lazily (never at module top
+level), fixtures under `tests/fixtures/`, and a row in the table in `docs/scopes.md`.
 
 Svelte and plain HTML are the two openly wanted ones. See [Limitations](docs/limitations.md).

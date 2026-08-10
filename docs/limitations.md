@@ -6,6 +6,9 @@ Stated here rather than discovered later.
 
 - `markup` covers `.vue` only. Svelte and plain HTML are not reachable yet. Both are
   additive behind the same interface.
+- There is no plugin API, by decision. A scope is not something a config can register, so
+  the set of surfaces is fixed by the release you have installed. A surface that is missing
+  is a feature request rather than a configuration problem.
 - `v-html` content is not reachable and is not attempted.
 - `<style>` blocks are never read, so text in a CSS `content` property is not checked.
 - Vue custom blocks such as `<i18n>` are skipped, though `<i18n>` does hold rendered text
