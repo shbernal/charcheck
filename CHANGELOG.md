@@ -4,9 +4,11 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+While the version stays below 0.1.0, anything may change in any release.
+
 ## [Unreleased]
 
-## [0.1.0]
+## [0.0.1]
 
 First public release.
 
@@ -34,5 +36,10 @@ First public release.
   directory.
 - `noAiPunctuation` and `invisibles` presets, each a function of the targeting.
 
-[unreleased]: https://github.com/shbernal/charcheck/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/shbernal/charcheck/releases/tag/v0.1.0
+### Known limitations
+
+`markup` covers `.vue` only, and there is no Markdown code-fence awareness for findings.
+The full list is in [docs/limitations.md](docs/limitations.md).
+
+[unreleased]: https://github.com/shbernal/charcheck/compare/v0.0.1...HEAD
+[0.0.1]: https://github.com/shbernal/charcheck/releases/tag/v0.0.1

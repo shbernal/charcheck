@@ -1,6 +1,6 @@
 {
   "name": "@shbernal/charcheck",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "Flag banned characters (em dashes, invisibles) in targeted parts of a repo, from one config",
   "keywords": [
     "banned-characters",
