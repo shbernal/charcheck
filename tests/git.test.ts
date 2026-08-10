@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -139,6 +139,22 @@ describe('--staged', () => {
     const result = await cli(['--staged'], path.join(root, 'src'));
     expect(result.code).toBe(EXIT_FINDINGS);
     expect(result.out).toContain('docs/page.md');
+  });
+
+  // The path git reports and the path the process was started from are the same string
+  // only when no link is involved. On macOS a temporary directory is reached through
+  // /var -> /private/var, and on Windows through an 8.3 alias, which is why this failed
+  // there and passed on Linux. A junction needs no elevation, so it stands in for both.
+  it('reports a violation when the repository is reached through a link', async () => {
+    await write('docs/page.md', `staged ${EM_DASH} problem\n`);
+    await git('add', 'docs/page.md');
+
+    const link = path.join(await mkdtemp(path.join(os.tmpdir(), 'charcheck-link-')), 'repo');
+    await symlink(root, link, process.platform === 'win32' ? 'junction' : 'dir');
+
+    const result = await cli(['--staged'], link);
+    expect(result.code).toBe(EXIT_FINDINGS);
+    expect(result.out).toContain('docs/page.md:1:8');
   });
 
   it('refuses paths alongside it', async () => {

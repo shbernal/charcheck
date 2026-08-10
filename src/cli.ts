@@ -242,14 +242,34 @@ async function runCommitMsg(
  * The working tree is deliberately not consulted: a hook that reports a violation the
  * commit does not contain is a hook people turn off.
  */
+/**
+ * A directory as the filesystem itself spells it: links resolved, and on Windows the real
+ * name rather than an 8.3 alias.
+ *
+ * The two roots below must agree character for character, because one is subtracted from
+ * the other to turn a repository-relative path into a config-relative one. Git reports the
+ * resolved path from `rev-parse`, while the config root comes from wherever the process
+ * started, and the two disagree the moment the repository is reached through a link:
+ * `/var` against `/private/var` on macOS, `RUNNER~1` against the real user name on
+ * Windows. Left alone the subtraction yields `../../…`, which matches no glob, so every
+ * staged file is filtered out and the hook reports a clean commit however dirty it is.
+ */
+function canonical(target: string): string {
+  try {
+    return toPosix(realpathSync(target));
+  } catch {
+    return toPosix(path.resolve(target));
+  }
+}
+
 async function runStaged(
   loaded: LoadedConfig,
   options: Options,
   io: CliIo,
   warn: (message: string) => void,
 ): Promise<ScanOutcome> {
-  const root = await repoRoot(io.cwd);
-  const configRoot = loaded.root;
+  const root = canonical(await repoRoot(io.cwd));
+  const configRoot = canonical(loaded.root);
 
   // Git speaks in repository-relative paths; the rules' globs are relative to the config.
   const toConfigPath = (file: string): string =>
