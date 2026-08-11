@@ -29,7 +29,7 @@ jobs:
       - name: Enable Corepack
         run: corepack enable
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 24.x
           cache: pnpm
@@ -75,7 +75,7 @@ jobs:
 
       # No registry-url here on purpose: it writes an .npmrc auth line that would take
       # precedence over the OIDC exchange and then resolve to an empty token.
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 24.x
           cache: pnpm
