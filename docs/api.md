@@ -47,6 +47,27 @@ replacement has changed the length of the text, and two findings whose spans ove
 corrupt each other. Line endings are never normalized and a byte order mark is preserved:
 only the matched spans are touched, and the file is never re-serialized.
 
+## Scanning what a config file says to scan
+
+`scan` takes rules directly, which is what a test wants. To run the config a repo already
+has, load it and hand the result over, both from `charcheck/config`:
+
+```ts
+import { loadConfig, scanWithConfig } from 'charcheck/config';
+
+const loaded = await loadConfig({ from: process.cwd() });
+const findings = await scanWithConfig(loaded);
+```
+
+`loadConfig` searches upward from `from` and validates what it finds, throwing
+`ConfigNotFoundError` or `ConfigError`; `configPath` skips the search. `scanWithConfig`
+takes the same `files` and `root` narrowing the CLI's positional paths use.
+
+Globs resolve against the config file's own directory, never `from`, so the result does not
+depend on where the process started. `toScanOptions` returns those resolved options without
+scanning, for a caller that wants to add its own `onWarning` or `read` first, which is how
+the CLI implements `--staged`.
+
 ## What else the root exports
 
 | Export                                                                                                         | For                                                                                      |

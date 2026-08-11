@@ -20,21 +20,26 @@ export default defineConfig({
 
 ## Rule fields
 
-| Field      | Type                                           | Meaning                                                                                     |
-| ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `id`       | `string`                                       | Required, unique. Appears in output and in suppression comments.                            |
-| `chars`    | `string[]`                                     | Literal strings to ban. Escaped and matched longest first.                                  |
-| `pattern`  | `string`                                       | A regular expression source, compiled with `gu`. Use instead of `chars`, never both.        |
-| `include`  | `string[]`                                     | Required. Globs, or `<commit-msg>` for the commit message. Matching nothing warns.          |
-| `exclude`  | `string[]`                                     | Globs subtracted from `include`.                                                            |
-| `scope`    | `'raw' \| 'strings' \| 'markup' \| 'markdown'` | Default `raw`. See [Scopes](scopes.md).                                                     |
-| `severity` | `'error' \| 'warn'`                            | Default `error`. Only errors fail a run.                                                    |
-| `message`  | `string`                                       | Replaces the default, which names the code point.                                           |
-| `fix`      | `string \| (ctx) => string`                    | A replacement, or a function of the surrounding text. Absent means the rule is not fixable. |
+| Field      | Type                                                     | Meaning                                                                                     |
+| ---------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `id`       | `string`                                                 | Required, unique. Appears in output and in suppression comments.                            |
+| `chars`    | `string[]`                                               | Literal strings to ban. Escaped and matched longest first.                                  |
+| `pattern`  | `string`                                                 | A regular expression source, compiled with `gu`. Use instead of `chars`, never both.        |
+| `include`  | `string[]`                                               | Required. Globs, or `<commit-msg>` for the commit message. Matching nothing warns.          |
+| `exclude`  | `string[]`                                               | Globs subtracted from `include`.                                                            |
+| `scope`    | `'raw' \| 'strings' \| 'markup' \| 'markdown' \| 'html'` | Default `raw`. See [Scopes](scopes.md).                                                     |
+| `severity` | `'error' \| 'warn'`                                      | Default `error`. Only errors fail a run.                                                    |
+| `message`  | `string`                                                 | Replaces the default, which names the code point.                                           |
+| `fix`      | `string \| (ctx) => string`                              | A replacement, or a function of the surrounding text. Absent means the rule is not fixable. |
 
 ## Top-level fields
 
-`rules`, `ignore` (globs added to every rule's `exclude`), and `markup`.
+| Field            | Type       | Meaning                                                                                                                                                               |
+| ---------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `rules`          | `Rule[]`   | Required, and empty is an error, since nothing would be checked.                                                                                                      |
+| `ignore`         | `string[]` | Globs added to every rule's own `exclude`.                                                                                                                            |
+| `textAttributes` | `string[]` | Attribute names whose value counts as rendered text, for `markup` and `html` alike. Replaces the default allowlist rather than extending it. See [Scopes](scopes.md). |
+| `markup`         | `object`   | The former home of `textAttributes`, kept working because it shipped. Prefer the top-level key; setting both is a config error rather than a silent precedence rule.  |
 
 `node_modules` and `.git` are always ignored. Dotted directories are only scanned when a
 pattern names them, so a rule meant to cover `.github/` needs a glob that says so.
@@ -60,10 +65,8 @@ import { strategies } from 'charcheck/config';
 
 It receives `{ container, match, index, scope }`. `container` is the enclosing string
 literal for `strings` and `markup`, and the enclosing **sentence** for `raw`, `markdown` and
-the text of an `html` page.
-`index` is
-where `match` starts inside it, which matters because a sentence may hold the same text
-twice and searching for it would answer for the wrong one.
+the text of an `html` page. `index` is where `match` starts inside it, which matters because
+a sentence may hold the same text twice and searching for it would answer for the wrong one.
 
 The sentence rather than the line, because prose in a repository is hard-wrapped and a line
 is a typographic accident. The two halves of an aside routinely land on different ones, and

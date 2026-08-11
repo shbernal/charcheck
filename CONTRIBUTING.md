@@ -120,6 +120,11 @@ Not closed forever, but reopening one needs a reason beyond preference:
 - **A commit message is masked, not trimmed.** Ignorable text becomes spaces so the file
   keeps its length and positions still point at the line the author typed.
 - **Core ships no vocabulary opinions.** This tool is about characters.
+- **`JsxUnsupportedError` stays exported.** It looks internal, since `scan` catches it and
+  no CLI code names it, but `scan-files.ts` hands the instance to `ScanOptions.onSkipped`.
+  An API consumer therefore receives one and can legitimately branch on it with
+  `instanceof`, which `tests/skipped-files.test.ts` asserts. Unexporting it would take an
+  error out of a caller's hands while still delivering it to them.
 
 ## Adding a scope
 

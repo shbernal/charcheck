@@ -146,10 +146,10 @@ function place(punctuation: string, ctx: FixContext): string {
  * A pair of dashes bracketing an aside becomes a pair of parentheses. A lone dash becomes a
  * colon, or a comma where a colon would be ungrammatical or would be the sentence's second.
  *
- * `ctx.container` is the enclosing sentence for `raw`, and the enclosing literal for
- * `strings` and `markup`. The sentence rather than the line matters: hard-wrapped prose
- * puts the two halves of an aside on different lines, and a fix that can see only one of
- * them cannot tell it is looking at a pair.
+ * `ctx.container` is the enclosing sentence for `raw`, `markdown` and `html`, and the
+ * enclosing literal for `strings` and `markup`. The sentence rather than the line matters:
+ * hard-wrapped prose puts the two halves of an aside on different lines, and a fix that can
+ * see only one of them cannot tell it is looking at a pair.
  *
  * Pair this with a pattern that also matches the surrounding whitespace, as the example in
  * `docs/configuration.md` does, so the replacement absorbs it instead of leaving a double

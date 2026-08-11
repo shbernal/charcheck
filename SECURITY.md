@@ -45,7 +45,8 @@ to hang the scanner).
 
 - The fact that config files execute. See above. That is the design.
 - A `pattern` you wrote yourself that backtracks catastrophically.
-- Vulnerabilities in `typescript` or `@vue/compiler-sfc`. Report those upstream, though
+- Vulnerabilities in an optional parser peer: `typescript`, `@vue/compiler-sfc`,
+  `micromark`, `parse5`. Report those upstream, though
   telling us is useful if charcheck's usage makes them reachable in an unusual way.
 - charcheck failing to flag a character. That is a bug, sometimes an important one, but it
   is not a vulnerability. Open a normal issue.

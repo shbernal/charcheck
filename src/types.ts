@@ -24,7 +24,11 @@ export type Severity = 'error' | 'warn';
 export type Scope = 'raw' | 'strings' | 'markup' | 'markdown' | 'html';
 
 export interface FixContext {
-  /** The enclosing literal for `strings` and `markup`, the enclosing sentence for `raw`. */
+  /**
+   * The enclosing literal for `strings` and `markup`, the enclosing sentence for `raw`,
+   * `markdown` and `html`. Prose is hard-wrapped on all three, so the line is the wrong
+   * unit and the sentence is the one a fix can decide from.
+   */
   container: string;
   match: string;
   /**
