@@ -96,18 +96,86 @@ export async function scanText(
 
     // The fast path that keeps this usable on a big tree: most files contain no banned
     // character at all, and those must never reach a parser.
-    compiled.regex.lastIndex = 0;
-    if (!compiled.regex.test(source)) continue;
+    const matches = findMatches(compiled.regex, source);
+    if (matches.starts.length === 0) continue;
 
     const chunks = await getExtractor(compiled.scope)(source, file, extractorOptions);
 
     for (const chunk of chunks) {
+      if (!mayMatch(matches, chunk)) continue;
       collectInChunk(chunk, compiled, source, file, findings, lines, sentences, suppressed);
     }
   }
 
-  findings.sort((a, b) => a.offset - b.offset || (a.ruleId < b.ruleId ? -1 : 1));
+  findings.sort(
+    (a, b) => a.offset - b.offset || (a.ruleId < b.ruleId ? -1 : a.ruleId > b.ruleId ? 1 : 0),
+  );
   return findings;
+}
+
+/**
+ * Every span the rule matches, from one left-to-right pass over the whole file.
+ *
+ * This grew out of a cheaper question, whether the file contains a match at all, and the
+ * extra work pays for itself many times over. `collectInChunk` restarts the engine at each
+ * chunk, and an engine restarted with no match ahead of it scans to the end of the file
+ * before the loop can stop, so the old shape cost chunks times file length. A prose document
+ * is thousands of chunks, since every inline code span and link splits a paragraph into
+ * separate spans, and on a 150 kB Markdown file holding a single banned character that spent
+ * more time restarting the engine than the parser spent parsing.
+ *
+ * Zero-length matches are left out. `collectInChunk` steps over them rather than reporting
+ * them, so a pattern that can only ever match nothing finds nothing, and answering that here
+ * means never parsing the file for it.
+ */
+interface Matches {
+  /** Ascending. Matches never overlap, so `ends` ascends with them. */
+  starts: number[];
+  ends: number[];
+}
+
+function findMatches(regex: RegExp, source: string): Matches {
+  const starts: number[] = [];
+  const ends: number[] = [];
+
+  regex.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(source)) !== null) {
+    if (match[0].length === 0) {
+      // A pattern that can match nothing would otherwise spin forever.
+      regex.lastIndex += 1;
+      continue;
+    }
+    starts.push(match.index);
+    ends.push(match.index + match[0].length);
+  }
+
+  return { starts, ends };
+}
+
+/**
+ * Is it worth running the collector over this chunk?
+ *
+ * The spans above are the greedy matches, and `collectInChunk` may report a shorter one
+ * starting a character later where a greedy match runs past the chunk's end. So the question
+ * asked here is the conservative one, whether any greedy match overlaps the chunk at all: a
+ * chunk holding a match the collector could reach always overlaps one, because the greedy
+ * pass cannot walk past a position without matching at or before it. What is actually
+ * reported stays the collector's decision.
+ */
+function mayMatch(matches: Matches, chunk: Chunk): boolean {
+  const { starts, ends } = matches;
+
+  // The first span ending after the chunk opens. `ends` ascends, so this is a binary search.
+  let low = 0;
+  let high = ends.length;
+  while (low < high) {
+    const mid = (low + high) >> 1;
+    if (ends[mid]! > chunk.start) high = mid;
+    else low = mid + 1;
+  }
+
+  return low < starts.length && starts[low]! < chunk.end;
 }
 
 function collectInChunk(

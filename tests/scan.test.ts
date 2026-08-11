@@ -4,6 +4,7 @@ import { BYTE_ORDER_MARK, EM_DASH, EN_DASH, HORIZONTAL_BAR } from '../src/chars.
 import { applyFixes } from '../src/fix.js';
 import { RuleError, compileRule } from '../src/rule.js';
 import { looksBinary, scanText } from '../src/scan.js';
+import type { Finding } from '../src/types.js';
 import { emDashRule, rule } from './helpers.js';
 
 const NUL = String.fromCharCode(0);
@@ -269,5 +270,62 @@ describe('fixes', () => {
       { assumeText: true },
     );
     expect(seen).toEqual([4, 10]);
+  });
+});
+
+/**
+ * A rule is matched against the whole file once, and each region a scope hands back is then
+ * asked whether any of those matches could fall inside it. A region with none is skipped
+ * without running the engine over it again, which is what keeps a document of thousands of
+ * regions linear in its size.
+ *
+ * The offsets below are the `html` scope's, whose regions are the easiest to state exactly:
+ * `<p>AB</p>` gives one region covering `AB`, at offsets 3 to 5.
+ */
+describe('matching against a region of a file', () => {
+  const source = '<p>AB</p>';
+  const inRegion = (chars: string[]): Promise<Finding[]> =>
+    scanText(source, 'a.html', [rule({ id: 'r', chars, scope: 'html' })], { assumeText: true });
+
+  it('reports a match starting on the first character of the region', async () => {
+    const findings = await inRegion(['A']);
+    expect(findings.map((finding) => finding.offset)).toEqual([3]);
+  });
+
+  it('reports a match ending on the last character of the region', async () => {
+    const findings = await inRegion(['B']);
+    expect(findings.map((finding) => finding.offset)).toEqual([4]);
+  });
+
+  it('reports a match spanning the whole region', async () => {
+    const findings = await inRegion(['AB']);
+    expect(findings.map((finding) => finding.offset)).toEqual([3]);
+  });
+
+  it('ignores a match ending exactly where the region opens', async () => {
+    // `>` at offset 2 ends at 3, and the region starts at 3. Touching is not overlapping.
+    expect(await inRegion(['>'])).toEqual([]);
+  });
+
+  it('ignores a match starting exactly where the region closes', async () => {
+    // `<` of the closing tag is at offset 5, and the region ends at 5.
+    expect(await inRegion(['<'])).toEqual([]);
+  });
+
+  it('ignores a match that only surrounds the region', async () => {
+    expect(await inRegion(['p'])).toEqual([]);
+  });
+
+  it('finds a lone match among many regions holding none', async () => {
+    // The case the whole arrangement exists for: one banned character, thousands of regions.
+    let document = '';
+    for (let i = 0; i < 500; i += 1) document += `Paragraph ${i} with \`code\` and *stress*.\n\n`;
+    document += `tail ${EM_DASH} end\n`;
+
+    const findings = await scanText(document, 'big.md', [rule({ id: 'r', scope: 'markdown' })], {
+      assumeText: true,
+    });
+    expect(findings).toHaveLength(1);
+    expect(document[findings[0]!.offset]).toBe(EM_DASH);
   });
 });

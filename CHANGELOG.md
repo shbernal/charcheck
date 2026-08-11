@@ -9,6 +9,19 @@ against every entry that does. A patch release does not.
 
 ## [Unreleased]
 
+### Changed
+
+- A scan no longer restarts the regular expression engine once per region of a file. It
+  matched the whole file per region, and a region with no match ahead of it was scanned to
+  the end of the file before the loop could stop, so the cost was regions times file length
+  rather than file length. That is invisible under `raw`, which is one region, and expensive
+  under every scope that is not: a prose document is thousands of regions, because each
+  inline code span and link splits a paragraph into separate ones. Measured on a 150 kB
+  Markdown file holding a single banned character, matching took 1344 ms against 569 ms of
+  parsing, and now takes about as long as one pass over the file. Findings are unchanged,
+  including where a match runs past the end of a region and a shorter one inside it is
+  reported instead.
+
 ### Fixed
 
 - `--quiet` no longer removes warnings from the count as well as from the list. It narrows
