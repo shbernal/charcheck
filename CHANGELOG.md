@@ -11,8 +11,18 @@ against every entry that does. A patch release does not.
 
 ### Added
 
+- A `charcheck-upstream` skill, shipped inside the package under `skills/`, for a project
+  that depends on charcheck. It exists because this tool's characteristic defect cannot
+  prompt anyone to report it: a rule that reads the wrong region, or opens no file at all,
+  reports a clean run and exits 0, so an agent hitting a real bug sees a pass and adds an
+  `exclude` glob. The skill triggers on that moment rather than on an exception, and it is
+  mostly triage, since a reproduction here is four lines of config and a string and the
+  cheap report is also the one that fills a tracker with scope confusion. Install it with
+  `npx skills add ./node_modules/charcheck -s '*' -a claude-code -a codex -a universal -y`.
+
 - An `agent-report.yml` issue form, for a coding agent filing a defect it hit while running
-  charcheck over somebody's repository. It asks for the rule **as it resolved** rather than
+  charcheck over somebody's repository. The two error messages below link to it and the
+  skill mirrors it when it files through `gh`. It asks for the rule **as it resolved** rather than
   for the config file, since a pasted config hides which globs reached what, and it asks for
   the directory segments in those globs to be renamed, `site/.vitepress/**/*.vue` as
   `dir1/.dir2/**/*.vue`. The shape is the diagnostic and the names are not needed, so a
@@ -49,8 +59,9 @@ against every entry that does. A patch release does not.
   a tracker manufactures noise.
 
 - `docs/limitations.md` gives every limitation its own heading, so each one can be linked to
-  by name rather than by page. The issue forms point into it, which is why the page now says
-  at the top that renaming a heading breaks those links.
+  by name rather than by page. The error messages, the issue forms and the skill all point
+  into it, which is why the page now says at the top that renaming a heading breaks those
+  links.
 
 ### Fixed
 

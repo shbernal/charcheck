@@ -112,6 +112,42 @@ needs it. A repo using only `raw` installs nothing extra. TypeScript 5, 6 and 7 
 its token scanner. The one thing that costs is JSX, which a scanner cannot read and which is
 therefore refused on 7. Details are in [Scopes](docs/scopes.md).
 
+## Hit a bug? There is a skill for that
+
+Most configs here are written by an agent, and an agent that hits a charcheck defect does
+not see an error. It sees a pass. Nothing throws, nothing is logged, and the natural next
+move is to add an `exclude` glob and get on with the task, which silences the bug and the
+real findings underneath it at the same time. The defect is invisible unless something
+teaches it to look.
+
+`charcheck-upstream` is a skill for exactly that moment. It ships inside the package, so it
+is already on disk:
+
+```bash
+# Name the skill and the runtimes, and take the defaults: this is the form that
+# completes unattended, which is how an agent will be running it.
+npx skills add ./node_modules/charcheck -s '*' -a claude-code -a codex -a universal -y
+
+npx skills add shbernal/charcheck   # same flags, from the repo instead of node_modules
+```
+
+Drop the flags for an interactive prompt if you are at a terminal yourself. Do not reach for
+`--all` to avoid the prompt: it installs into every runtime the CLI knows about, around
+seventy of them, and leaves an `agent/` directory at your repository root for runtimes
+nobody there uses. Name the ones you have. And the installed copy is a _copy_, so **a
+version bump does not update it**: re-run that command, or `npx skills update
+charcheck-upstream`, in the same commit as the bump.
+
+Most of the skill is triage rather than filing, because a reproduction here is four lines of
+config and a string, so the cheap thing to do is exactly the thing that fills a tracker with
+non-bugs. Did the rule open the file, can its scope see that region, is it already in
+[Limitations](docs/limitations.md). What survives those is ours, and it gets filed with a
+reproduction that synthesizes its own input, since the flagged text is the user's own prose
+and a zero width character does not survive a clipboard anyway.
+
+You do not need it to report something: <https://github.com/shbernal/charcheck/issues> is
+open.
+
 ## Documentation
 
 | Page                                       | Read it when                                                          |

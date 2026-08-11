@@ -35,6 +35,7 @@
   "files": [
     "dist",
     "src",
+    "skills",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"

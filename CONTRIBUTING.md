@@ -59,6 +59,9 @@ test names. Two consequences:
   name it through `src/chars.ts`, which builds each one from its code point, or use a
   suppression comment, so the file can still be read by the tool it configures. Do not paste
   the character itself.
+- `skills/` ships inside the package, so it is prose this project publishes and it is under
+  the same rules as the docs tree. It is also the file most likely to break the next rule,
+  since a skill about suppression has to name the markers.
 
 A related trap: charcheck cannot tell a suppression marker in a comment from the same words
 in prose. Writing the file-level marker into a document suppresses that whole document,

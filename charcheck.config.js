@@ -43,6 +43,8 @@ export default {
         'CONTRIBUTING.md',
         'SECURITY.md',
         'docs/**/*.md',
+        // Shipped inside the package, so it is prose this project publishes.
+        'skills/**/*.md',
       ],
     },
     {
