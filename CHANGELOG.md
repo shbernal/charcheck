@@ -9,6 +9,8 @@ against every entry that does. A patch release does not.
 
 ## [Unreleased]
 
+## [0.2.0]
+
 ### Added
 
 - An `html` scope, reading the text a page renders: element text, the values of allowlisted
@@ -220,7 +222,8 @@ First public release.
 `markup` covers `.vue` only, and there is no Markdown code-fence awareness for findings.
 The full list is in [docs/limitations.md](docs/limitations.md).
 
-[unreleased]: https://github.com/shbernal/charcheck/compare/v0.1.0...HEAD
+[unreleased]: https://github.com/shbernal/charcheck/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/shbernal/charcheck/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/shbernal/charcheck/compare/v0.0.2...v0.1.0
 [0.0.2]: https://github.com/shbernal/charcheck/compare/v0.0.1...v0.0.2
 [0.0.1]: https://github.com/shbernal/charcheck/releases/tag/v0.0.1
