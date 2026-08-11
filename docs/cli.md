@@ -100,6 +100,11 @@ globs, whether it carries a fix, and **how many files it actually matched**. A p
 hides the two facts that explain nearly every report, namely what the globs reached and which
 rules reached nothing at all. A rule matching zero files is usually the whole bug.
 
+The top-level `ignore` is printed above the rules, because it is part of how each of them
+resolved: it subtracts from every rule's match set the way that rule's own `exclude` does.
+Without it a matched count cannot be reconciled with the globs beside it, and a rule driven
+to zero by a broad `ignore` reads exactly like one driven to zero by a wrong `include`.
+
 It is a diagnostic, not a check. It resolves each rule's globs to count what they reach, it
 reads no file's content, and it **exits 0** whatever your tree holds. Every other flag either
 selects files to read or shapes a report of findings, so combining one with `--report-issue`
@@ -112,7 +117,7 @@ working config, and this tracker is public. So the output is anonymized at the s
 
 | Field                                          | Treatment                                                  |
 | ---------------------------------------------- | ---------------------------------------------------------- |
-| `include`, `exclude`                           | Names replaced positionally, all glob syntax kept verbatim |
+| `include`, `exclude`, top-level `ignore`       | Names replaced positionally, all glob syntax kept verbatim |
 | rule `id`                                      | Replaced by the rule's position: `rule 1`, `rule 2`        |
 | rule `message`                                 | Omitted, since it never affects what is matched            |
 | `scope`, `chars`, `pattern`, `severity`, `fix` | Verbatim. These are the report                             |

@@ -11,6 +11,15 @@ against every entry that does. A patch release does not.
 
 ### Fixed
 
+- `--report-issue` prints the top-level `ignore`, anonymized on the same rule as every other
+  glob, above the rules it applies to. It subtracts from every rule's match set exactly as
+  that rule's own `exclude` does, so omitting it left a report whose matched counts could not
+  be reconciled with the globs printed beside them: an `include` reaching three files, an
+  empty `exclude`, and a count of two, with no fact present to explain the third. That is
+  the arithmetic the flag exists to make visible, and a rule driven to zero by a broad
+  `ignore` reads exactly like one driven to zero by a wrong `include`, which has the opposite
+  fix. ([#14](https://github.com/shbernal/charcheck/issues/14))
+
 - `--report-issue` renders an `exclude: []` as `none`, the same as an absent `exclude`,
   rather than as a key with nothing after it. The two configs behave identically, so the
   report was drawing a distinction it had nothing to report, and a blank value reads as a
