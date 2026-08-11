@@ -1,0 +1,177 @@
+# The second form, and it earns its place on a different axis from `bug_report.yml`: not
+# another kind of defect, a different filer. An agent in a consumer repo arrives here from
+# the `charcheck-upstream` skill or from a URL printed by an error message, never from the
+# chooser, so it costs a human nothing. It asks for the three things the human form has no
+# slot for: which triage steps were ruled out, the rule as it actually resolved rather than
+# as it was written, and where the reproduction's input came from.
+name: Agent-assisted report
+description: A defect found while using charcheck in another project, and the form its error messages link to.
+title: '<scope or area>: <one specific symptom>'
+labels: [agent-reported, bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Two checks close most reports, so run them first. **Did the rule open the file at
+        all?** charcheck warns on stderr when a rule's globs matched nothing, and the usual
+        cause is that a dotted directory is only entered when a pattern names it. **Can the
+        rule's `scope` see that region?** `strings` never reads a comment, `markdown` never
+        reads a fence, and neither `markup` nor `html` reads `<style>`.
+        [Limitations](https://github.com/shbernal/charcheck/blob/main/docs/limitations.md)
+        covers what is already stated.
+
+        **Write every banned character as an escape**, `\u2014` and not the character
+        itself. This is a fidelity requirement rather than a courtesy: a zero width
+        character does not survive a clipboard, a browser or a text editor reliably, so
+        pasted input frequently is not the input you found the bug with.
+
+        **Do not paste the user's prose.** The flagged text is a sentence from their
+        repository, which may be an unreleased README, a client-facing document, or a commit
+        message under embargo. Synthesize an input instead. It is four lines of config and a
+        string, so this costs nothing.
+
+        The `charcheck-upstream` skill walks through all of this, including the triage:
+        `npx skills add shbernal/charcheck`
+
+  - type: input
+    id: version-charcheck
+    attributes:
+      label: charcheck version
+      description: 'Exact installed version: `node -p "require(''charcheck/package.json'').version"`'
+      placeholder: 0.2.0
+    validations:
+      required: true
+
+  - type: input
+    id: version-node
+    attributes:
+      label: Node version
+      description: The package requires Node `>=24`.
+      placeholder: v24.5.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Operating system
+      description: >-
+        Path handling, filesystem case sensitivity and line endings all differ by platform,
+        and glob behaviour is where that shows up first.
+      options:
+        - Linux
+        - macOS
+        - Windows
+    validations:
+      required: true
+
+  - type: input
+    id: version-peers
+    attributes:
+      label: Peer versions
+      description: >-
+        Only the ones the rule needs: `typescript` for `strings` and `markup`,
+        `@vue/compiler-sfc` for `markup`, `micromark` for `markdown`, `parse5` for `html`.
+        A `raw` rule needs none of them.
+      placeholder: typescript 6.0.3, micromark 4.0.2
+    validations:
+      required: false
+
+  - type: textarea
+    id: resolved-rule
+    attributes:
+      label: The rule, as resolved
+      description: >-
+        The `scope`, the `chars`, the `include` and `exclude` globs, and how many files the
+        rule actually matched. Not the config file: what the config resolved to. Which globs
+        matched what is the single most useful thing in a report, and a pasted config hides
+        it.
+
+
+        **Rename the directory segments and keep everything else exactly as written.**
+        `site/.vitepress/**/*.vue` becomes `dir1/.dir2/**/*.vue`. The shape is the
+        diagnostic here, never the names, so anonymized segments are expected and are
+        sufficient: nobody will ask you what the real path was. Keep the leading dot on a
+        dotted directory, keep `**` distinct from `*`, keep the segment count and any brace
+        expansion. Drop rule `message` strings and refer to rules by their position in the
+        config, `rule 1` and `rule 2`, since a rule `id` is local to whoever wrote it.
+      render: text
+    validations:
+      required: true
+
+  - type: input
+    id: command
+    attributes:
+      label: The command you ran
+      placeholder: pnpm exec charcheck --staged
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: >-
+        Including the case charcheck is worst at showing: it reported success on text you
+        know holds a banned character.
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-expected
+    attributes:
+      label: What should have happened
+      description: >-
+        And why you believe that: the scope's documented contract, or the fact that
+        `docs/limitations.md` does not claim this one. "Why" is what makes a silent miss
+        actionable rather than a matter of taste.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: >-
+        A config and an input, both synthesized, small enough to paste whole. Cut rules,
+        globs and lines until removing anything more makes the failure disappear. Banned
+        characters as `\uXXXX` escapes.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: output
+    attributes:
+      label: Full output
+      description: Verbatim, stdout and stderr, with the exit code. Do not paraphrase.
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: triage
+    attributes:
+      label: Triage
+      description: >-
+        Which of these were checked and ruled out, and how: the rule opened the file (no
+        matched-no-files warning on stderr), the scope can see that region, and
+        `docs/limitations.md` does not already state it.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched open and closed issues for this scope name, error class or message and found no match.
+          required: true
+        - label: >-
+            This still reproduces on the latest published version, or "What happened" says why
+            I could not upgrade to check.
+          required: true
+        - label: >-
+            Nothing here is the user's own text: the input is synthesized and every path segment
+            in a glob has been renamed.
+          required: true

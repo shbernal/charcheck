@@ -9,6 +9,15 @@ against every entry that does. A patch release does not.
 
 ## [Unreleased]
 
+### Added
+
+- An `agent-report.yml` issue form, for a coding agent filing a defect it hit while running
+  charcheck over somebody's repository. It asks for the rule **as it resolved** rather than
+  for the config file, since a pasted config hides which globs reached what, and it asks for
+  the directory segments in those globs to be renamed, `site/.vitepress/**/*.vue` as
+  `dir1/.dir2/**/*.vue`. The shape is the diagnostic and the names are not needed, so a
+  report can be filed unattended with nothing of the reporter's tree in it.
+
 ### Changed
 
 - A scan no longer restarts the regular expression engine once per region of a file. It
@@ -24,6 +33,10 @@ against every entry that does. A patch release does not.
 
 - The `pretty` reporter splits a file into lines once rather than once per finding, which a
   file with many findings paid for quadratically.
+
+- `docs/limitations.md` gives every limitation its own heading, so each one can be linked to
+  by name rather than by page. The issue forms point into it, which is why the page now says
+  at the top that renaming a heading breaks those links.
 
 ### Fixed
 

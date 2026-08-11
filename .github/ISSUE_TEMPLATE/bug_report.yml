@@ -6,9 +6,16 @@ body:
     attributes:
       value: |
         Before filing: if charcheck reports success on a file you know contains a banned
-        character, the usual cause is the rule's `scope`, not a bug. A `strings` rule
-        cannot see a comment, and no rule opens a dotted directory unless a glob names it.
-        See [Scopes](https://github.com/shbernal/charcheck/blob/main/docs/scopes.md).
+        character, the usual cause is that the rule never opened the file, or that its
+        `scope` cannot see that region. A `strings` rule cannot see a comment, and no rule
+        opens a dotted directory unless a glob names it. Both are covered in
+        [Not a bug](https://github.com/shbernal/charcheck/blob/main/docs/limitations.md#not-a-bug),
+        and [Scopes](https://github.com/shbernal/charcheck/blob/main/docs/scopes.md) has the
+        detail.
+
+        Filing on behalf of a user from another project, as an agent? Use the
+        [agent-assisted report](https://github.com/shbernal/charcheck/issues/new?template=agent-report.yml)
+        instead. It asks for the triage and for the rule as it resolved.
 
   - type: textarea
     id: what-happened
