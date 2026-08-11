@@ -97,8 +97,16 @@ function peersFor(rules: readonly Rule[]): string[] {
   return [...needed].sort();
 }
 
-/** `include` and `exclude`, anonymized unless the reporter asked for the real thing. */
+/**
+ * A glob list, anonymized unless the reporter asked for the real thing.
+ *
+ * An empty list reads as `none`, the same as an absent key, because the two behave the same
+ * and the report is a document read for anomalies: a key printed with nothing after it is the
+ * shape of a value that failed to serialize, which is a false lead. An empty `exclude` is not
+ * even unusual, being the starting state of a list a config adds paths to over time.
+ */
 function patterns(values: readonly string[], anonymize: (pattern: string) => string): string {
+  if (values.length === 0) return 'none';
   return values.map((value) => `\`${anonymize(value)}\``).join(', ');
 }
 
@@ -126,7 +134,7 @@ async function describeRule(
     `- severity: \`${rule.severity ?? 'error'}\``,
     `- fix: ${rule.fix === undefined ? 'none' : typeof rule.fix === 'function' ? 'a function' : 'a replacement string'}`,
     `- include: ${patterns(rule.include, anonymize)}`,
-    `- exclude: ${rule.exclude === undefined ? 'none' : patterns(rule.exclude, anonymize)}`,
+    `- exclude: ${patterns(rule.exclude ?? [], anonymize)}`,
   ];
 
   // A rule that targets only a virtual surface never touches a glob, so a file count for it

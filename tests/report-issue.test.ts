@@ -159,6 +159,25 @@ describe('--report-issue', () => {
     expect(result.out).not.toContain('reword');
   });
 
+  it('reads an empty exclude as none, the same as an absent one', async () => {
+    await write(
+      'charcheck.config.json',
+      JSON.stringify({
+        rules: [
+          { id: 'absent', chars: [ZERO_WIDTH_SPACE], include: ['acme/**/*.md'] },
+          { id: 'empty', chars: [ZERO_WIDTH_SPACE], include: ['acme/**/*.md'], exclude: [] },
+        ],
+      }),
+    );
+
+    const result = await cli(['--report-issue']);
+
+    // Two configs that behave alike have to read alike. A key printed with nothing after it
+    // reads as a truncation, in the one output whose job is to be scanned for anomalies.
+    expect(result.out).not.toContain('- exclude: \n');
+    expect([...result.out.matchAll(/- exclude: none/g)]).toHaveLength(2);
+  });
+
   it('names the config by its basename alone', async () => {
     const result = await cli(['--report-issue']);
 
