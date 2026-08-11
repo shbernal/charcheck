@@ -36,3 +36,33 @@ server protocol, so a column agrees with where an editor puts the cursor.
 A finding carries its resolved `replacement` rather than a reference to the rule's `fix`.
 A contextual fix reads the text around its match, and that context is gone by the time a
 fixer runs, so resolving it at scan time is what makes a finding self-contained.
+
+## Applying fixes
+
+`applyFixes(text, findings)` returns the rewritten text. It writes nothing, so a caller
+decides whether the result reaches disk.
+
+Findings are applied right to left, so an earlier offset stays valid after a later
+replacement has changed the length of the text, and two findings whose spans overlap do not
+corrupt each other. Line endings are never normalized and a byte order mark is preserved:
+only the matched spans are touched, and the file is never re-serialized.
+
+## What else the root exports
+
+| Export                                                                                                         | For                                                                                      |
+| -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `clauseSeparator`, `fixStrategies`, `isFixStrategyName`                                                        | The named fix strategies, so a rule can reuse one or a config can look one up by name    |
+| `compileRule`, `RuleError`                                                                                     | Turning a `Rule` into its compiled regex, and the error a malformed one throws           |
+| `scopeSupportsFile`                                                                                            | Whether a scope can read a given path, which is how the config check rejects a dead rule |
+| `MissingPeerDependencyError`, `UnsupportedPeerDependencyError`, `JsxUnsupportedError`, `UnsupportedScopeError` | Catching a parser problem by type rather than by message                                 |
+| `looksBinary`, `stripBom`                                                                                      | The two text checks `scanText` runs first, exposed for a caller doing its own reading    |
+| `DEFAULT_IGNORE`                                                                                               | The directories every scan skips, for a caller building its own ignore list              |
+| `relativeToRoot`, `toPosix`                                                                                    | The path normalization findings are reported in, which is POSIX on every platform        |
+| `chars`                                                                                                        | Every banned character this package knows about, by name, built from its code point      |
+
+Rules, presets and the config loader live behind their own entry points, `charcheck/config`
+and `charcheck/presets`, so a config file pulls in neither the scanner nor the CLI. See
+[Configuration](configuration.md) and [Presets](presets.md).
+
+The reporters are deliberately not exported. A report is a presentation decision, and the
+shape of a finding is the contract worth keeping stable.
