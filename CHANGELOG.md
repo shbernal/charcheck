@@ -22,6 +22,9 @@ against every entry that does. A patch release does not.
   including where a match runs past the end of a region and a shorter one inside it is
   reported instead.
 
+- The `pretty` reporter splits a file into lines once rather than once per finding, which a
+  file with many findings paid for quadratically.
+
 ### Fixed
 
 - `--quiet` no longer removes warnings from the count as well as from the list. It narrows

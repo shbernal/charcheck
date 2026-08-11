@@ -18,9 +18,9 @@ export function plural(count: number, word: string): string {
   return `${count} ${word}${count === 1 ? '' : 's'}`;
 }
 
-function lineAt(source: string | undefined, line: number): string | undefined {
-  if (source === undefined) return undefined;
-  const text = source.split('\n')[line - 1];
+/** The excerpt for one finding, from lines split once per file rather than once per finding. */
+function lineAt(lines: readonly string[] | undefined, line: number): string | undefined {
+  const text = lines?.[line - 1];
   if (text === undefined) return undefined;
   return text.endsWith('\r') ? text.slice(0, -1) : text;
 }
@@ -31,12 +31,12 @@ export function formatPretty(findings: readonly Finding[], options: PrettyOption
   const summary = summarize(findings);
 
   for (const [file, forFile] of groupByFile(listed(findings, options))) {
-    const source = options.sources?.get(file);
+    const lines = options.sources?.get(file)?.split('\n');
     for (const finding of forFile) {
       // On its own line, so a terminal turns it into a link to the exact position.
       out.push(c.underline(`${file}:${String(finding.line)}:${String(finding.column)}`));
 
-      const excerpt = lineAt(source, finding.line);
+      const excerpt = lineAt(lines, finding.line);
       if (excerpt !== undefined) {
         out.push(`  ${excerpt}`);
         const caret = '^'.repeat(Math.max(1, finding.endColumn - finding.column));
