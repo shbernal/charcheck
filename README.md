@@ -145,8 +145,14 @@ non-bugs. Did the rule open the file, can its scope see that region, is it alrea
 reproduction that synthesizes its own input, since the flagged text is the user's own prose
 and a zero width character does not survive a clipboard anyway.
 
-You do not need it to report something: <https://github.com/shbernal/charcheck/issues> is
-open.
+Either way, `charcheck --report-issue` writes most of the report for you, including the one
+part a pasted config cannot show: every rule as it resolved, and how many files each one
+actually matched. Directory names in the globs are replaced before they are printed, so it
+runs unattended with nothing of your tree in the output. See
+[Command line](docs/cli.md#--report-issue).
+
+You do not need any of this to report something:
+<https://github.com/shbernal/charcheck/issues> is open.
 
 ## Documentation
 

@@ -15,6 +15,7 @@ import { commentChar, repoRoot, stageFiles, stagedContent, stagedFiles } from '.
 import { relativeToRoot, toPosix } from './paths.js';
 import { readTextFile } from './read.js';
 import { scanText } from './scan.js';
+import { formatIssueReport } from './report/issue.js';
 import { formatJson } from './report/json.js';
 import { formatPretty, plural } from './report/pretty.js';
 import { formatSarif } from './report/sarif.js';
@@ -56,6 +57,12 @@ Flags banned characters in targeted parts of a repo, driven by one config.
                         threshold and the distance past it.
   --quiet               List errors only. Warnings are still counted in the
                         summary, and still decide --max-warnings.
+  --report-issue        Print a bug report about charcheck itself: the versions
+                        in play, and every rule as it resolved, including how
+                        many files each one matched. Reads no file and exits 0.
+                        Directory names in the globs are replaced, so nothing of
+                        your tree goes into the tracker.
+  --verbatim            With --report-issue only: keep the real glob names.
   --no-color            Disable colour. NO_COLOR and a non-TTY stdout are
                         already honoured.
   --version, --help
@@ -86,6 +93,10 @@ interface Options {
   format: Format;
   maxWarnings?: number;
   quiet: boolean;
+  /** Print the config as it resolved, for a bug report about charcheck itself. */
+  reportIssue: boolean;
+  /** With `reportIssue`, print the globs as written rather than anonymized. */
+  verbatim: boolean;
   /** undefined leaves picocolors to detect NO_COLOR and a non-TTY stdout itself. */
   color: boolean | undefined;
 }
@@ -104,6 +115,8 @@ function parse(argv: string[], io: CliIo): Options | 'help' | 'version' {
         format: { type: 'string', default: 'pretty' },
         'max-warnings': { type: 'string' },
         quiet: { type: 'boolean', default: false },
+        'report-issue': { type: 'boolean', default: false },
+        verbatim: { type: 'boolean', default: false },
         'no-color': { type: 'boolean', default: false },
         version: { type: 'boolean', default: false },
         help: { type: 'boolean', default: false, short: 'h' },
@@ -143,6 +156,33 @@ function parse(argv: string[], io: CliIo): Options | 'help' | 'version' {
     throw new UsageError('--staged selects the files itself; do not also pass paths.');
   }
 
+  const reportIssue = values['report-issue'] === true;
+  const verbatim = values.verbatim === true;
+  if (verbatim && !reportIssue) {
+    throw new UsageError('--verbatim only means something alongside --report-issue.');
+  }
+  if (reportIssue) {
+    // Everything else either selects files to read or shapes a report of findings, and this
+    // flag does neither. Refused rather than quietly ignored: a flag that appears to have
+    // been honoured and was not is this tool's own characteristic failure.
+    const conflict = (
+      [
+        ['--fix', values.fix === true],
+        ['--staged', staged],
+        ['--commit-msg', commitMsg !== undefined],
+        ['--format', format !== 'pretty'],
+        ['--max-warnings', maxWarnings !== undefined],
+        ['--quiet', values.quiet === true],
+        ['the positional paths', parsed.positionals.length > 0],
+      ] as const
+    ).find(([, given]) => given);
+    if (conflict) {
+      throw new UsageError(
+        `--report-issue reports the configuration and scans nothing; drop ${conflict[0]}.`,
+      );
+    }
+  }
+
   return {
     paths: parsed.positionals,
     ...(values.config !== undefined ? { config: values.config } : {}),
@@ -152,6 +192,8 @@ function parse(argv: string[], io: CliIo): Options | 'help' | 'version' {
     format: format as Format,
     ...(maxWarnings !== undefined ? { maxWarnings } : {}),
     quiet: values.quiet === true,
+    reportIssue,
+    verbatim,
     color: values['no-color'] === true ? false : io.color,
   };
 }
@@ -371,6 +413,19 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
       return EXIT_USAGE;
     }
     throw cause;
+  }
+
+  if (options.reportIssue) {
+    // A diagnostic, not a check: it resolves the globs to count what each rule reaches, reads
+    // no file, and exits 0 whatever the tree holds.
+    io.out(
+      await formatIssueReport({
+        loaded,
+        version: await version(),
+        verbatim: options.verbatim,
+      }),
+    );
+    return EXIT_OK;
   }
 
   let outcome: ScanOutcome;

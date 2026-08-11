@@ -48,10 +48,17 @@ export interface ScanOptions extends ExtractorOptions {
   read?: (file: string) => Promise<ReadOutcome>;
 }
 
-async function filesForRule(
+/**
+ * The files one rule reaches, before any narrowing by `files`.
+ *
+ * Exported because `--report-issue` needs the count and nothing else: how many files a rule
+ * matched is the fact that explains most silent misses, and getting it costs the glob pass
+ * alone, with no file read.
+ */
+export async function filesForRule(
   root: string,
   rule: Rule,
-  ignore: readonly string[],
+  ignore: readonly string[] = [],
 ): Promise<string[]> {
   return glob({
     patterns: [...rule.include],

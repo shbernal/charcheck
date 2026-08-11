@@ -9,6 +9,38 @@ against every entry that does. A patch release does not.
 
 ## [Unreleased]
 
+### Added
+
+- `--report-issue`, which prints the body of a bug report about charcheck itself, in the
+  shape the `agent-report.yml` form asks for and with the human sections left as bracketed
+  placeholders. It exists for one of those sections. Every other fact in a report can be
+  pasted by hand, but **the rule as it resolved** cannot: a pasted config hides what the
+  globs actually reached and which rules reached nothing at all, and a rule matching zero
+  files is usually the whole bug. So the flag reports each rule's scope, characters, globs,
+  fix and **matched file count**, alongside the charcheck, Node, operating system and peer
+  versions. It is a diagnostic rather than a check: it resolves globs, reads no file's
+  content, and exits 0 whatever the tree holds. Combining it with a flag that selects files
+  or shapes a report of findings is a usage error rather than a flag silently ignored.
+
+- The globs in that output are **anonymized at the source, always**. A glob carries real
+  names, `docs/acme-migration/**` is exactly the pattern that ends up in a working config,
+  and the tracker is public. The rename is structure preserving, because the diagnostic
+  value of a glob is its shape rather than its words: `site/.vitepress/**/*.vue` becomes
+  `dir1/.dir2/**/*.vue`, keeping the leading dot that decides whether a dotted directory is
+  entered at all, the double star against the single one, the segment count, brace
+  expansions and the extension. Placeholders are numbered in order of first appearance and
+  shared across rules, so two rules naming one directory still look alike, and the rename is
+  idempotent. Rule ids become positions and rule messages are dropped. There is deliberately
+  no warning and no approval step: this runs unattended, and a safety measure that depends
+  on somebody reading the output before pasting it is not one in the case that matters.
+  `--verbatim` opts out, for a human who would rather a maintainer saw the real names.
+
+### Changed
+
+- The `charcheck-upstream` skill collects its facts with `--report-issue` rather than by
+  hand, and keeps the manual instructions for a project pinned to an older version. The
+  agent report form points at the flag for the same section.
+
 ## [0.2.1]
 
 ### Added

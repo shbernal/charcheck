@@ -130,32 +130,55 @@ not the one below.
 
 ## 2. Collect the facts
 
+One command collects nearly all of them, already in the shape section 5 files:
+
 ```bash
-pnpm exec charcheck --version   # exact installed version
-node -v                         # runtime, >=24 required
+pnpm exec charcheck --report-issue > <a path this repo already ignores>/charcheck-report.md
 ```
 
-Plus: the operating system, the versions of whichever peers the rule needs (`typescript`
-for `strings` and `markup`, `@vue/compiler-sfc` for `markup`, `micromark` for `markdown`,
-`parse5` for `html`), the command you ran, and the full output verbatim with its exit code.
-Do not paraphrase the output. The throw site is often identifiable from the exact wording,
-and the stderr warnings are where the matched-no-files case lives.
+It writes the charcheck, Node, operating system and peer versions, and then the fact that
+decides most reports: **each rule as it resolved, not the config as it was written**,
+including **how many files each one matched**. A pasted config hides the two things that
+explain nearly every silent miss, which are what the globs actually reached and which rules
+matched nothing at all. If the matched-no-files warning fired, that count is zero and it is
+the finding.
 
-Then the fact that decides most reports: **the rule as it resolved, not the config as it was
-written.** A pasted config hides the two things that explain nearly every silent miss, which
-are what the globs actually reached and which rules matched nothing at all.
+It reads no file's content, exits 0 whatever your tree holds, and refuses to combine with any
+flag that would select files or shape a report of findings. Add `--config <path>` if the
+config is not the one found from here.
 
-For each rule involved, record its `scope`, its `chars`, its `include` and `exclude`
-patterns, whether it carries a `fix`, and how many files it matched. If the matched-no-files
-warning fired, that count is zero and it is the finding.
+The sections you have to write yourself are left as bracketed placeholders. Two of them are
+the ones the command cannot know: **the exact command you ran, and its full output verbatim
+with the exit code.** Do not paraphrase the output. The throw site is often identifiable from
+the exact wording, and the stderr warnings are where the matched-no-files case lives.
 
-### Anonymize the globs, always, without asking
+### The globs are anonymized for you, and there is nothing to approve
 
 A glob carries real names. `docs/acme-migration/**` is exactly the sort of pattern that ends
-up in a working config, and this tracker is public.
+up in a working config, and this tracker is public. So `--report-issue` renames them at the
+source, always: `site/.vitepress/**/*.vue` comes out as `dir1/.dir2/**/*.vue`. The rename is
+structure preserving, so everything that decides what a pattern matched survives, including
+the leading dot on a dotted directory. Rule ids become positions, `rule 1` and `rule 2`, and
+rule `message` strings are dropped, since a message never affects what is matched.
 
-**Rename the directory segments in every pattern, and keep everything else exactly as
-written.** One worked example carries the whole rule:
+**Do not add a checkpoint the tool deliberately does not have.** Do not weigh whether these
+particular globs are sensitive, do not ask the user to review the report before it goes, and
+do not reach for `--verbatim`, which exists for a human who wants the real names in and is
+never what the agent path needs. Anonymizing unconditionally is cheaper than deciding, and it
+is the only version of this that survives an unattended run.
+
+Never add a real file path, a finding, or the flagged text back into the report by hand.
+
+### If the installed charcheck predates the flag
+
+`--report-issue` shipped in 0.2.2. On an older pin, collect the same facts by hand:
+`charcheck --version`, `node -v`, the operating system, and the versions of whichever peers
+the rule needs (`typescript` for `strings` and `markup`, `@vue/compiler-sfc` for `markup`,
+`micromark` for `markdown`, `parse5` for `html`). Then, per rule, its `scope`, its `chars`,
+its `include` and `exclude`, whether it carries a `fix`, and how many files it matched.
+
+Do the rename yourself, by the same rule: **rename the directory segments in every pattern,
+and keep everything else exactly as written.** One worked example carries it:
 
 ```
 site/.vitepress/**/*.vue      becomes      dir1/.dir2/**/*.vue
@@ -165,23 +188,8 @@ The leading dot stays, because a dotted directory needing to be named is the mos
 cause of a report being filed at all, and destroying that signal would gut the section.
 `**` stays distinct from `*`, the segment count stays, brace expansions stay, the extension
 stays. Two rules that share a directory keep sharing its placeholder. `<commit-msg>` is a
-virtual pattern naming no directory, so it survives verbatim.
-
-Two more, for the same reason:
-
-- **Drop rule `message` strings entirely.** A message never affects what is matched, so it
-  is pure user prose with no diagnostic value.
-- **Refer to rules by their position in the config**, `rule 1` and `rule 2`, not by `id`. An
-  id is local to whoever wrote it. No legend is needed: the user maps a number back by
-  counting.
-
-Never include a real file path, a finding, or the flagged text.
-
-**This replaces asking.** Do not stop to weigh whether these particular globs are sensitive,
-do not ask the user to review the report before it goes, and do not keep a real path because
-it looked harmless. Anonymizing unconditionally is cheaper than deciding, and it is the only
-version of this that survives an unattended run. A safety measure that depends on somebody
-reading the output is not a safety measure in the case that matters.
+virtual pattern naming no directory, so it survives verbatim. Drop the `message` strings,
+refer to rules by position rather than by `id`, and never include a real file path.
 
 ## 3. Build a minimal reproduction
 
@@ -273,7 +281,9 @@ temporary directory, whatever it calls that. A report committed by accident is a
 of the reproduction living in someone else's history.
 
 The web form is `agent-report.yml`, which is what the error messages link to. `gh` does not
-apply issue forms, so the body file has to mirror its sections by hand:
+apply issue forms, so the body file has to mirror its sections, which is exactly what
+`--report-issue` wrote in section 2. Fill in its bracketed placeholders and the file is ready
+to send. Written out by hand, the shape is:
 
 ```markdown
 ### charcheck version
