@@ -136,6 +136,24 @@ describe('clauseSeparator', () => {
     });
   });
 
+  /**
+   * A colon can only have introduced something if it came first. Counting one further along
+   * the sentence downgraded a dash that was doing real work, and the commonest such colon is
+   * the one ending a sentence that introduces a code block, which is dense in exactly the
+   * documentation these rules are pointed at.
+   */
+  describe('a colon that comes after the dash', () => {
+    it('does not count as the one already introducing', () => {
+      const container = `Annotate the header cells ${EM_DASH} these win outright on every path:`;
+      expect(clauseSeparator(context(container))).toBe(': ');
+    });
+
+    it('still counts once the dash is past it', () => {
+      const container = `Annotate them: the header cells ${EM_DASH} these win outright`;
+      expect(clauseSeparator(context(container))).toBe(', ');
+    });
+  });
+
   it('absorbs the surrounding spaces when paired with the spaced pattern', async () => {
     expect(await fixed(`one ${EM_DASH} two`)).toBe('one: two');
   });
@@ -187,6 +205,20 @@ describe('clauseSeparator', () => {
         'JSON is the wire format, so there is no `Date`, and no `Uint8Array`\n' +
         `${EM_DASH} media lives behind an \`AssetRef\` and is addressed by hash.\n`;
       expect((await fixed(text)).split('\n')).toHaveLength(text.split('\n').length);
+    });
+
+    // Putting an LF back where a CRLF was rewrites a line ending under the author, which is
+    // the one thing a fixer is never allowed to do quietly.
+    it('keeps the break spelled the way the file spells it', async () => {
+      const starts = `The wire format is JSON\r\n${EM_DASH} media lives behind a reference.\r\n`;
+      expect(await fixed(starts)).toBe(
+        'The wire format is JSON:\r\nmedia lives behind a reference.\r\n',
+      );
+
+      const ends = `The wire format is JSON ${EM_DASH}\r\nmedia lives behind a reference.\r\n`;
+      expect(await fixed(ends)).toBe(
+        'The wire format is JSON:\r\nmedia lives behind a reference.\r\n',
+      );
     });
   });
 

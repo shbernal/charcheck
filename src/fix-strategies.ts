@@ -48,6 +48,9 @@ function dashOffsets(masked: string): number[] {
 /** Punctuation that ends the clause before it, so a space after it would be wrong. */
 const CLOSING_PUNCTUATION = /^[.,;:!?)\]}]/;
 
+/** A line break with whatever spelling the file uses, kept rather than normalized. */
+const LINE_BREAK = /\r?\n/;
+
 /**
  * Which half of a bracketing pair this dash is, or `null` when it is not one.
  *
@@ -74,6 +77,11 @@ function bracketHalf(ctx: FixContext, masked: string): '(' | ')' | null {
  * A colon reads best, except in three cases where a comma is the safer choice: the dash is
  * followed by a conjunction, the sentence already has a colon doing the introducing, or the
  * dash is one of a pair and the bracket could not be kept.
+ *
+ * "Already" is positional, and only the text before the dash counts. A colon further along
+ * the sentence has not introduced anything yet, and the commonest one is the colon that
+ * ends a sentence introducing a code block. Reading it as the introducer downgraded a dash
+ * that was doing real work, and a comma between two independent clauses is a splice.
  */
 function choosePunctuation(ctx: FixContext, masked: string): string {
   const bracket = bracketHalf(ctx, masked);
@@ -82,7 +90,8 @@ function choosePunctuation(ctx: FixContext, masked: string): string {
   const after = ctx.container.slice(ctx.index + ctx.match.length);
   if (JOINS_CLAUSES.test(after.trimStart())) return ',';
 
-  return masked.includes(':') || dashOffsets(masked).length >= 2 ? ',' : ':';
+  const before = masked.slice(0, ctx.index);
+  return before.includes(':') || dashOffsets(masked).length >= 2 ? ',' : ':';
 }
 
 /**
@@ -106,7 +115,10 @@ function place(punctuation: string, ctx: FixContext): string {
 
   const wrapped = after.includes('\n') ? after : before.includes('\n') ? before : null;
   if (wrapped !== null) {
-    const line = wrapped.slice(wrapped.indexOf('\n'));
+    // From the carriage return, not from the newline: slicing at `\n` alone would hand back
+    // an LF break in a CRLF file, and a fix that rewrites line endings under you is worse
+    // than no fix at all.
+    const line = wrapped.slice(wrapped.search(LINE_BREAK));
     return opensBracket ? line + punctuation : punctuation + line;
   }
 

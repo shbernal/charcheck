@@ -4,8 +4,9 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { EM_DASH } from '../src/chars.js';
+import { EM_DASH, charClass } from '../src/chars.js';
 import { applyFixes } from '../src/fix.js';
+import { clauseSeparator } from '../src/fix-strategies.js';
 import { scanText } from '../src/scan.js';
 import { scopeSupportsFile } from '../src/scope/index.js';
 import { markdownExtractor } from '../src/scope/markdown.js';
@@ -157,6 +158,52 @@ describe('the markdown scope', () => {
     expect(fixed).toContain('Plain prose -,');
     // A second pass has nothing left to do, so the fix converges in one.
     expect(await scanText(fixed, 'prose.md', [markdownRule])).toEqual([]);
+  });
+
+  /**
+   * A chunk that opens right after a hard wrap has to reach back over it, or a fix matching
+   * the whitespace around its match never sees the break and writes its replacement at the
+   * head of the line. The join between two runs of prose already covered the common shape;
+   * this is the one where the line above ends in something that is not prose.
+   */
+  describe('a chunk opening on a wrapped line', () => {
+    const spacedDash = `\\s*[${charClass([EM_DASH])}]\\s*`;
+    const clause = rule({
+      id: 'clause',
+      chars: undefined,
+      pattern: spacedDash,
+      scope: 'markdown',
+      fix: clauseSeparator,
+    });
+
+    async function fixed(text: string): Promise<string> {
+      return applyFixes(text, await scanText(text, 'a.md', [clause]));
+    }
+
+    it('closes the clause above rather than starting the line with punctuation', async () => {
+      const text =
+        '- `import Foo from "pkg/browser"`\n' +
+        `  ${EM_DASH} the bare specifier resolves by export condition, so Node\n` +
+        '  and bundlers get the right build.\n';
+      expect(await fixed(text)).toBe(
+        '- `import Foo from "pkg/browser"`:\n' +
+          '  the bare specifier resolves by export condition, so Node\n' +
+          '  and bundlers get the right build.\n',
+      );
+    });
+
+    it('reaches back no further than the block it belongs to', async () => {
+      const text = `Above.\n\n\`\`\`js\nx\n\`\`\`\n\n${EM_DASH} an aside opening a paragraph.\n`;
+      // The fence keeps every character it had, and the paragraph keeps its own line.
+      expect(await fixed(text)).toBe(
+        'Above.\n\n```js\nx\n```\n\n: an aside opening a paragraph.\n',
+      );
+    });
+
+    it('leaves the paragraph with the lines it had', async () => {
+      const text = `A line ending in \`code\`\n  ${EM_DASH} and the aside that follows it.\n`;
+      expect((await fixed(text)).split('\n')).toHaveLength(text.split('\n').length);
+    });
   });
 
   it('is limited to .md and .markdown, with .mdx a separate surface', async () => {

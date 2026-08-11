@@ -87,17 +87,25 @@ A **lone** dash becomes a colon, or a comma in two cases: the dash is followed b
 conjunction (`and`, `but`, `or`, `nor`, `so`, `yet`, `then`, `because`), or the sentence
 already contains a colon doing the introducing.
 
-Colons that are not sentence punctuation do not count toward that second case. Ignored are
-the ones inside an inline code span, a Markdown link or image target, a bare URL, and a
-braced block, which is what a stylesheet, a JSON fragment or a template interpolation looks
-like from here. One Markdown link in the line used to be enough to turn a colon into a
-comma splice.
+"Already" is read literally: only a colon **before** the dash counts. A colon further along
+has introduced nothing yet, and the commonest one is the colon ending a sentence that
+introduces a code block, which is dense in exactly the prose these rules target.
+
+Colons that are not sentence punctuation do not count toward that second case either.
+Ignored are the ones inside an inline code span, a Markdown link or image target, a bare
+URL, and a braced block, which is what a stylesheet, a JSON fragment or a template
+interpolation looks like from here. One Markdown link in the line used to be enough to turn
+a colon into a comma splice.
 
 Pair it with a pattern that matches the surrounding whitespace, as above. `\s` rather than
 `[ \t]`: a line break inside the match is put back rather than swallowed, so a dash at the
 end or the start of a wrapped line keeps its break and the paragraph keeps its wrapping.
 Restricting the pattern to horizontal space instead leaves a trailing space behind a
 line-final dash and eats the indent in front of a line-initial one.
+
+The break is kept, and the punctuation goes in front of it: it closes the clause above
+rather than opening the line below. A line starting with a colon is not neutral in Markdown
+either, being definition-list syntax in several flavours.
 
 It is a guess about prose. Read the diff.
 

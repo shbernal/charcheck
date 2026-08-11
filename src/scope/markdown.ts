@@ -54,9 +54,29 @@ const FRONTMATTER_CLOSE = /^(---|\.\.\.)[ \t]*\r?$/;
  */
 const HARD_WRAP = /^[^\S\r\n]*\r?\n[ \t>]*$/;
 
+/**
+ * The same wrap, seen from the prose that follows it, so a chunk can reach back over it.
+ *
+ * Needed because the join above only fires between two runs of prose. When the line above
+ * ends in something that is not prose, an inline code span or a link, the chunk begins at
+ * the first character after the break, and a fix that matched the whitespace around a dash
+ * never saw the break at all. `clauseSeparator` then wrote its replacement at the head of
+ * the line instead of onto the end of the clause above, which in Markdown is not only
+ * awkward: a line starting with a colon is definition-list syntax in several flavours.
+ *
+ * Only spaces, tabs and block quote markers are crossed, the same characters the join
+ * already puts inside a chunk, so no rule gains a place to match that it did not have.
+ */
+const WRAP_BEFORE = /[ \t]*\r?\n[ \t>]*$/;
+
 interface Span {
   start: number;
   end: number;
+  /**
+   * Where the block holding this prose begins. The reach backwards stops here, so a chunk
+   * opening a paragraph never swallows the line ending of the fence or heading above it.
+   */
+  blockStart: number;
 }
 
 /**
@@ -69,7 +89,9 @@ interface Span {
  * not, but guessing per key means knowing every convention of every site generator, and the
  * cost of covering a key that is never displayed is a finding in text nobody reads.
  */
-function splitFrontmatter(text: string): { body: Span; rest: number } | undefined {
+function splitFrontmatter(
+  text: string,
+): { body: { start: number; end: number }; rest: number } | undefined {
   const open = FRONTMATTER_OPEN.exec(text);
   if (!open) return undefined;
 
@@ -91,21 +113,40 @@ function splitFrontmatter(text: string): { body: Span; rest: number } | undefine
   return undefined;
 }
 
+/**
+ * The tokens that hold prose spanning more than one line. `content` covers a paragraph and
+ * a setext heading; an ATX heading is a single line and so has no wrap to reach over.
+ */
+const BLOCK = new Set(['content']);
+
 function collectProse(events: readonly Event[], offset: number): Span[] {
   const spans: Span[] = [];
   let skipping = 0;
+  let blockStart: number | undefined;
 
   for (const [kind, token] of events) {
+    if (BLOCK.has(token.type)) {
+      blockStart = kind === 'enter' ? token.start.offset + offset : undefined;
+      continue;
+    }
     if (NOT_PROSE.has(token.type)) {
       if (kind === 'enter') skipping += 1;
       else skipping -= 1;
       continue;
     }
     if (kind !== 'enter' || token.type !== 'data' || skipping > 0) continue;
-    spans.push({ start: token.start.offset + offset, end: token.end.offset + offset });
+    const start = token.start.offset + offset;
+    spans.push({ start, end: token.end.offset + offset, blockStart: blockStart ?? start });
   }
 
   return spans;
+}
+
+/** How far back a chunk may open, over the wrap that a run of non-prose left in front of it. */
+function openingWrap(span: Span, text: string, floor: number): number {
+  const before = text.slice(Math.max(span.blockStart, floor), span.start);
+  const wrap = WRAP_BEFORE.exec(before);
+  return wrap === null ? span.start : span.start - wrap[0].length;
 }
 
 function joinHardWraps(spans: readonly Span[], text: string): Chunk[] {
@@ -120,7 +161,8 @@ function joinHardWraps(spans: readonly Span[], text: string): Chunk[] {
     }
     // A fix reads the enclosing sentence, not the chunk. Markdown prose is hard-wrapped the
     // same way raw prose is, so the unit a fix has to decide from is the same one.
-    chunks.push({ start: span.start, end: span.end, container: 'sentence' });
+    const start = openingWrap(span, text, previous?.end ?? 0);
+    chunks.push({ start, end: span.end, container: 'sentence' });
   }
 
   return chunks;
@@ -149,7 +191,9 @@ export const markdownExtractor: Extractor = async (text, file) => {
   ) as unknown as Event[];
 
   const spans = collectProse(events, offset);
-  if (frontmatter && frontmatter.body.end > frontmatter.body.start) spans.unshift(frontmatter.body);
+  if (frontmatter && frontmatter.body.end > frontmatter.body.start) {
+    spans.unshift({ ...frontmatter.body, blockStart: frontmatter.body.start });
+  }
 
   return joinHardWraps(spans, text);
 };

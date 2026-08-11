@@ -27,6 +27,26 @@ against every entry that does. A patch release does not.
   past it. Nothing else in the report explained that exit code, and under `--format json`
   nothing else may be written to stdout.
 
+- `clauseSeparator` no longer counts a colon that comes **after** the dash as the one
+  already introducing something. A colon further along the sentence has introduced nothing
+  yet, and the commonest one is the colon that ends a sentence introducing a code block, so
+  a dash doing real work was downgraded to a comma between two independent clauses. A
+  splice is worse than the awkwardness the downgrade avoids, and easy to miss in a large
+  fix diff.
+
+- `clauseSeparator` now writes its replacement in front of a line break rather than after
+  it when the dash opens a hard-wrapped line under the `markdown` scope. Punctuation closes
+  the clause above it; a line starting with a colon is also definition-list syntax in
+  several Markdown flavours, so the fix could change how a paragraph parses. The cause was
+  that a prose chunk following an inline code span or a link began after the break, leaving
+  the break outside the match, so the fix never knew it was there. Such a chunk now reaches
+  back over the wrap, no further than the block it belongs to, which also means a finding on
+  the first character of a wrapped line is reported at the break, exactly as under `raw`.
+
+- `clauseSeparator` now puts a kept line break back with the spelling it had. It sliced from
+  the newline, so a break it preserved in a CRLF file came back as an LF, rewriting a line
+  ending nobody asked it to touch.
+
 ## [0.2.0]
 
 ### Added
