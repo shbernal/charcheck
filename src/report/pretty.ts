@@ -2,9 +2,10 @@ import { createColors } from 'picocolors';
 
 import { describeChars, isInvisibleText } from '../chars.js';
 import type { Finding } from '../types.js';
-import { groupByFile, summarize } from './summary.js';
+import { groupByFile, listed, summarize } from './summary.js';
+import type { ListOptions } from './summary.js';
 
-export interface PrettyOptions {
+export interface PrettyOptions extends ListOptions {
   color?: boolean;
   /** Source text per file, for the excerpt. Findings alone do not carry it. */
   sources?: Map<string, string>;
@@ -12,7 +13,8 @@ export interface PrettyOptions {
   fixedCount?: number;
 }
 
-function plural(count: number, word: string): string {
+/** Shared with the CLI, so a count reads the same wherever a person meets it. */
+export function plural(count: number, word: string): string {
   return `${count} ${word}${count === 1 ? '' : 's'}`;
 }
 
@@ -28,7 +30,7 @@ export function formatPretty(findings: readonly Finding[], options: PrettyOption
   const out: string[] = [];
   const summary = summarize(findings);
 
-  for (const [file, forFile] of groupByFile(findings)) {
+  for (const [file, forFile] of groupByFile(listed(findings, options))) {
     const source = options.sources?.get(file);
     for (const finding of forFile) {
       // On its own line, so a terminal turns it into a link to the exact position.

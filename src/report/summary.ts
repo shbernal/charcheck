@@ -7,6 +7,21 @@ export interface Summary {
   files: number;
 }
 
+export interface ListOptions {
+  /**
+   * List errors only. The summary still counts the warnings: a report that hid them and an
+   * exit code that failed on them disagreed, and the failure was unexplainable.
+   */
+  quiet?: boolean;
+}
+
+/** The findings a report enumerates, which under `--quiet` is fewer than it counts. */
+export function listed(findings: readonly Finding[], options: ListOptions): readonly Finding[] {
+  return options.quiet === true
+    ? findings.filter((finding) => finding.severity === 'error')
+    : findings;
+}
+
 export function summarize(findings: readonly Finding[]): Summary {
   const files = new Set<string>();
   let errors = 0;

@@ -1,4 +1,6 @@
 import type { Finding } from '../types.js';
+import { listed } from './summary.js';
+import type { ListOptions } from './summary.js';
 
 /**
  * The smallest SARIF 2.1.0 document GitHub code scanning accepts, so findings become
@@ -8,11 +10,12 @@ export const SARIF_VERSION = '2.1.0';
 
 const SCHEMA = 'https://json.schemastore.org/sarif-2.1.0.json';
 
-export interface SarifOptions {
+export interface SarifOptions extends ListOptions {
   toolVersion?: string;
 }
 
-export function formatSarif(findings: readonly Finding[], options: SarifOptions = {}): string {
+export function formatSarif(all: readonly Finding[], options: SarifOptions = {}): string {
+  const findings = listed(all, options);
   const rules = new Map<string, { id: string; shortDescription: { text: string } }>();
   for (const finding of findings) {
     if (!rules.has(finding.ruleId)) {

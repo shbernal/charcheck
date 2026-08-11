@@ -9,6 +9,24 @@ against every entry that does. A patch release does not.
 
 ## [Unreleased]
 
+### Fixed
+
+- `--quiet` no longer removes warnings from the count as well as from the list. It narrows
+  what a report enumerates; the summary line, `summary` in the JSON report, and
+  `--max-warnings` all go on seeing every warning. The three used to disagree, so
+  `--quiet --max-warnings n` could exit 1 while printing `No banned characters found.` and
+  emit a JSON report saying the tree was clean, which is the one failure nobody can act on.
+  That combination is what makes the flag usable as a ratchet over an existing backlog, so
+  neither half of it was usable before.
+
+  `toJsonReport`, `formatJson` and `formatSarif` take an optional second argument carrying
+  the flag; none of them is exported from the package root, and every existing call is
+  unchanged in meaning.
+
+- Crossing `--max-warnings` is now reported on stderr, naming the threshold and the distance
+  past it. Nothing else in the report explained that exit code, and under `--format json`
+  nothing else may be written to stdout.
+
 ## [0.2.0]
 
 ### Added

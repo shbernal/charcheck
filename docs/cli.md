@@ -9,7 +9,7 @@ charcheck [paths...]
   --commit-msg <file>   Check a commit message.
   --format <fmt>        pretty (default), json, or sarif.
   --max-warnings <n>    Exit non-zero when warnings exceed n.
-  --quiet               Report errors only.
+  --quiet               List errors only. Warnings are still counted.
   --no-color            Disable colour.
   --version, --help
 ```
@@ -32,10 +32,35 @@ would mean `charcheck src/` silently applying prose rules to source files.
 
 `2` is kept distinct so a broken config in CI is never mistaken for a real violation.
 
+## `--quiet` and `--max-warnings`
+
+`--quiet` narrows the **list**, never the count. Warnings stop being enumerated, and go on
+being summarized, reported in `summary` of the JSON report, and used to decide
+`--max-warnings`. The two have to agree: a run that hid its warnings and then failed on
+their number printed that nothing was wrong, and no consumer could act on the exit code.
+
+That pairing is what makes the flag usable as a ratchet over an existing backlog. Freeze
+the count, let it shrink but not grow, and read one summary line instead of the whole
+backlog on every CI run:
+
+```bash
+charcheck --quiet --max-warnings 684
+```
+
+Crossing the threshold is reported on stderr, naming the limit and the distance past it, so
+the exit code is diagnosable in every format:
+
+```
+charcheck: 685 warnings, 1 over the --max-warnings limit of 684.
+```
+
 ## Output formats
 
 `json` and `sarif` go to stdout with diagnostics on stderr, so piping to a parser needs no
 filtering. The JSON report carries a `schemaVersion`.
+
+Under `--quiet`, `findings` holds the errors alone while `summary` still counts everything,
+which is the same split the pretty report makes between its list and its last line.
 
 ## `--staged`
 

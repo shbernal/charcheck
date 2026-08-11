@@ -184,6 +184,38 @@ describe('filtering and exit codes', () => {
     expect(result.out).not.toContain('no-zero-width');
   });
 
+  /**
+   * --quiet used to remove the warnings from the count as well as from the list, so a run
+   * failing on --max-warnings printed that nothing was wrong. The exit code was then
+   * impossible to act on, which is exactly the ratchet the flag exists to make quiet.
+   */
+  describe('--quiet', () => {
+    it('still counts the warnings it does not list', async () => {
+      const result = await cli(['docs/warn.md', '--quiet']);
+      expect(result.code).toBe(EXIT_OK);
+      expect(result.out).not.toContain('no-zero-width');
+      expect(result.out).toContain('1 warning');
+      expect(result.out).not.toContain('No banned characters found');
+    });
+
+    it('keeps the json summary whole while narrowing its findings', async () => {
+      const result = await cli(['docs/warn.md', '--quiet', '--format', 'json']);
+      const report = JSON.parse(result.out) as {
+        findings: unknown[];
+        summary: { warnings: number; files: number };
+      };
+      expect(report.findings).toEqual([]);
+      expect(report.summary.warnings).toBe(1);
+      expect(report.summary.files).toBe(1);
+    });
+
+    it('says nothing when there is nothing to say', async () => {
+      const result = await cli(['docs/clean.md', '--quiet']);
+      expect(result.code).toBe(EXIT_OK);
+      expect(result.out).toContain('No banned characters found');
+    });
+  });
+
   it('exits 0 for warnings alone, and 1 once they exceed --max-warnings', async () => {
     const clean = await cli(['docs/warn.md']);
     expect(clean.code).toBe(EXIT_OK);
@@ -193,6 +225,21 @@ describe('filtering and exit codes', () => {
 
     const allowed = await cli(['docs/warn.md', '--max-warnings', '1']);
     expect(allowed.code).toBe(EXIT_OK);
+  });
+
+  it('names the threshold it crossed, on stderr, where json can still be parsed', async () => {
+    const result = await cli([
+      'docs/warn.md',
+      '--quiet',
+      '--format',
+      'json',
+      '--max-warnings',
+      '0',
+    ]);
+    expect(result.code).toBe(EXIT_FINDINGS);
+    expect(result.err).toContain('--max-warnings');
+    expect(result.err).toContain('1 warning, 1 over');
+    expect(() => JSON.parse(result.out)).not.toThrow();
   });
 
   it('reports a rule whose scope needs an absent parser as a config error', async () => {

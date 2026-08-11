@@ -16,7 +16,7 @@ import { relativeToRoot, toPosix } from './paths.js';
 import { readTextFile } from './read.js';
 import { scanText } from './scan.js';
 import { formatJson } from './report/json.js';
-import { formatPretty } from './report/pretty.js';
+import { formatPretty, plural } from './report/pretty.js';
 import { formatSarif } from './report/sarif.js';
 import { scan } from './scan-files.js';
 import type { Finding } from './types.js';
@@ -52,8 +52,10 @@ Flags banned characters in targeted parts of a repo, driven by one config.
   --format <fmt>        pretty (default), json, or sarif. json and sarif go to
                         stdout alone, so piping to a parser needs no filtering.
   --max-warnings <n>    Exit non-zero when warnings exceed n. Unlimited by
-                        default.
-  --quiet               Report errors only.
+                        default. Crossing it is reported on stderr, with the
+                        threshold and the distance past it.
+  --quiet               List errors only. Warnings are still counted in the
+                        summary, and still decide --max-warnings.
   --no-color            Disable colour. NO_COLOR and a non-TTY stdout are
                         already honoured.
   --version, --help
@@ -393,20 +395,21 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
 
   const { findings, fixedCount } = outcome;
 
-  const reported = options.quiet
-    ? findings.filter((finding) => finding.severity === 'error')
-    : findings;
-
+  // Every formatter is handed the whole run and narrows the list itself, so what --quiet
+  // hides is still counted. A summary that agreed with the listing rather than with the
+  // exit code left a failing run saying nothing was wrong.
+  const quiet = options.quiet;
   if (options.format === 'json') {
-    io.out(formatJson(reported));
+    io.out(formatJson(findings, { quiet }));
   } else if (options.format === 'sarif') {
-    io.out(formatSarif(reported, { toolVersion: await version() }));
+    io.out(formatSarif(findings, { toolVersion: await version(), quiet }));
   } else {
     io.out(
-      formatPretty(reported, {
+      formatPretty(findings, {
         color: options.color,
         sources: outcome.sources,
         fixedCount,
+        quiet,
       }),
     );
   }
@@ -414,7 +417,16 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
   const errors = findings.filter((finding) => finding.severity === 'error').length;
   const warnings = findings.length - errors;
   if (errors > 0) return EXIT_FINDINGS;
-  if (options.maxWarnings !== undefined && warnings > options.maxWarnings) return EXIT_FINDINGS;
+  if (options.maxWarnings !== undefined && warnings > options.maxWarnings) {
+    // On stderr, and said in full: the threshold and the distance past it. Nothing else in
+    // the report explains this exit code, and under --quiet or --format json nothing else
+    // may be added to stdout.
+    const over = warnings - options.maxWarnings;
+    warn(
+      `${plural(warnings, 'warning')}, ${String(over)} over the --max-warnings limit of ${String(options.maxWarnings)}.`,
+    );
+    return EXIT_FINDINGS;
+  }
   if (skipped.length > 0) {
     // Reported after the findings, so the list is the last thing on the screen.
     warn(`${String(skipped.length)} file(s) could not be scanned. This run is not a pass.`);

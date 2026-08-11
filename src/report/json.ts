@@ -1,6 +1,6 @@
 import type { Finding } from '../types.js';
-import { summarize } from './summary.js';
-import type { Summary } from './summary.js';
+import { listed, summarize } from './summary.js';
+import type { ListOptions, Summary } from './summary.js';
 
 /**
  * Bumped only for a breaking change to the shape below. Versioned from the first release
@@ -10,18 +10,20 @@ export const JSON_SCHEMA_VERSION = 1;
 
 export interface JsonReport {
   schemaVersion: number;
+  /** What the run reported. Under `--quiet` this holds the errors alone. */
   findings: Finding[];
+  /** What the run found, and what the exit code was decided from. Never narrowed. */
   summary: Summary;
 }
 
-export function toJsonReport(findings: readonly Finding[]): JsonReport {
+export function toJsonReport(findings: readonly Finding[], options: ListOptions = {}): JsonReport {
   return {
     schemaVersion: JSON_SCHEMA_VERSION,
-    findings: [...findings],
+    findings: [...listed(findings, options)],
     summary: summarize(findings),
   };
 }
 
-export function formatJson(findings: readonly Finding[]): string {
-  return JSON.stringify(toJsonReport(findings), null, 2);
+export function formatJson(findings: readonly Finding[], options: ListOptions = {}): string {
+  return JSON.stringify(toJsonReport(findings, options), null, 2);
 }
