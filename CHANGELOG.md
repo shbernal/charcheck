@@ -9,6 +9,8 @@ against every entry that does. A patch release does not.
 
 ## [Unreleased]
 
+## [0.2.2]
+
 ### Added
 
 - `--report-issue`, which prints the body of a bug report about charcheck itself, in the
@@ -348,7 +350,8 @@ First public release.
 `markup` covers `.vue` only, and there is no Markdown code-fence awareness for findings.
 The full list is in [docs/limitations.md](docs/limitations.md).
 
-[unreleased]: https://github.com/shbernal/charcheck/compare/v0.2.1...HEAD
+[unreleased]: https://github.com/shbernal/charcheck/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/shbernal/charcheck/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/shbernal/charcheck/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/shbernal/charcheck/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/shbernal/charcheck/compare/v0.0.2...v0.1.0
