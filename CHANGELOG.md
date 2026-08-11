@@ -54,6 +54,8 @@ against every entry that does. A patch release does not.
   shipped from the first release and neither had a page, so the only way to find the config
   entry point's scanning path was to read its exports.
 
+## [0.2.2]
+
 ### Added
 
 - `--report-issue`, which prints the body of a bug report about charcheck itself, in the
