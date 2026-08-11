@@ -316,6 +316,40 @@ describe('matching against a region of a file', () => {
     expect(await inRegion(['p'])).toEqual([]);
   });
 
+  it('reports the longest match that fits where the greedy one runs past the region', async () => {
+    // The greedy match takes `</p>` with it and so is not in the region at all. Stepping a
+    // character forward finds nothing, because the pattern ends in the banned character, so
+    // the finding used to be dropped in silence.
+    const findings = await scanText(
+      '<p>a B</p>',
+      'a.html',
+      [rule({ id: 'r', chars: undefined, pattern: '\\s*B[\\s\\S]*' })],
+      { assumeText: true },
+    );
+    expect(findings.map((finding) => finding.match)).toEqual([' B</p>']);
+
+    const scoped = await scanText(
+      '<p>a B</p>',
+      'a.html',
+      [rule({ id: 'r', chars: undefined, pattern: '\\s*B[\\s\\S]*', scope: 'html' })],
+      { assumeText: true },
+    );
+    expect(scoped.map((finding) => finding.match)).toEqual([' B']);
+    expect(scoped[0]!.offset).toBe(4);
+  });
+
+  it('drops an overrunning match at a region end without losing the one before it', async () => {
+    // Nothing shorter fits where the second match starts, so that one is still not reported,
+    // and the collector has to leave the region rather than retry the same place forever.
+    const findings = await scanText(
+      '<p>a b c</p>',
+      'a.html',
+      [rule({ id: 'r', chars: undefined, pattern: '[ac][\\s\\S]{3}', scope: 'html' })],
+      { assumeText: true },
+    );
+    expect(findings.map((finding) => finding.offset)).toEqual([3]);
+  });
+
   it('finds a lone match among many regions holding none', async () => {
     // The case the whole arrangement exists for: one banned character, thousands of regions.
     let document = '';

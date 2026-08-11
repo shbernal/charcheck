@@ -11,6 +11,20 @@ against every entry that does. A patch release does not.
 
 ### Fixed
 
+- A banned character at the edge of a region is reported rather than silently dropped, for
+  any scope but `raw`. A pattern of the form `\s*<chars>\s*`, which is how a rule that wants
+  its fix to keep the surrounding whitespace is written, matched greedily past the region's
+  end whenever the character sat at the end of a hard-wrapped line and the line below opened
+  on something the scope skips, such as an inline code span. The match then belonged to no
+  region and the finding was thrown away, so the configuration most likely to carry a fix was
+  also the one that under-reported, and it did so as a clean run and a zero exit. The
+  collector now reports the longest match that fits inside the region rather than abandoning
+  the place the greedy one started. ([#16](https://github.com/shbernal/charcheck/issues/16))
+
+- `clauseSeparator` writes no space after its punctuation when the line ends immediately
+  after the match, which is what those newly reported findings leave behind. It used to
+  produce a trailing space, and two of those are a hard line break in Markdown.
+
 - `--report-issue` prints the top-level `ignore`, anonymized on the same rule as every other
   glob, above the rules it applies to. It subtracts from every rule's match set exactly as
   that rule's own `exclude` does, so omitting it left a report whose matched counts could not

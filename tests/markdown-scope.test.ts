@@ -206,6 +206,58 @@ describe('the markdown scope', () => {
     });
   });
 
+  /**
+   * The mirror of the block above: the wrapped line ending in the banned character, with the
+   * line below it opening on something that is not prose. The chunk stops at the character,
+   * so the pattern's trailing `\s*` reached past the chunk and the finding was lost.
+   */
+  describe('a chunk closing on a wrapped line', () => {
+    const clause = rule({
+      id: 'clause',
+      chars: undefined,
+      pattern: `\\s*[${charClass([EM_DASH])}]\\s*`,
+      scope: 'markdown',
+      fix: clauseSeparator,
+    });
+
+    const text =
+      `A dash ending the line ${EM_DASH}\n` +
+      '`code` continues the clause.\n' +
+      '\n' +
+      `Another dash ending the line ${EM_DASH}\n` +
+      'plain words continue the clause.\n' +
+      '\n' +
+      `A dash mid line ${EM_DASH} still on the same line.\n`;
+
+    it('reports the character the trailing whitespace used to reach past', async () => {
+      // All three are ordinary paragraph prose. The first was silently dropped, which is the
+      // shape a clean run and a missed finding share.
+      expect(lines(await scanText(text, 'a.md', [clause]))).toEqual([1, 4, 7]);
+    });
+
+    it('does not depend on what follows, only on the pattern', async () => {
+      // The same three lines with the trailing `\s*` gone, which is what proves the scope
+      // hands that prose to the rule either way.
+      const bare = rule({ id: 'bare', scope: 'markdown' });
+      expect(lines(await scanText(text, 'a.md', [bare]))).toEqual([1, 4, 7]);
+    });
+
+    it('closes the line rather than leaving a space at the end of it', async () => {
+      const fixed = applyFixes(text, await scanText(text, 'a.md', [clause]));
+
+      expect(fixed).toBe(
+        'A dash ending the line:\n' +
+          '`code` continues the clause.\n' +
+          '\n' +
+          'Another dash ending the line:\n' +
+          'plain words continue the clause.\n' +
+          '\n' +
+          'A dash mid line: still on the same line.\n',
+      );
+      expect(await scanText(fixed, 'a.md', [clause])).toEqual([]);
+    });
+  });
+
   it('is limited to .md and .markdown, with .mdx a separate surface', async () => {
     expect(scopeSupportsFile('markdown', 'a.md')).toBe(true);
     expect(scopeSupportsFile('markdown', 'a.markdown')).toBe(true);

@@ -43,6 +43,17 @@ is left alone. It may still match a file the scope cannot read, and that file is
 scanned as empty, so a scope with a restricted extension list is worth pairing with a
 pattern that names one.
 
+## A match has to fit inside one region
+
+Every scope except `raw` hands the rules a set of regions rather than the whole file, and a
+match is reported only when it fits inside one of them. Where the greedy match runs past a
+region's end, the longest one that fits is reported instead, so a pattern ending in `\s*`
+still finds a character sitting at the edge of a region: the trailing whitespace matches as
+much as the region holds and no more.
+
+What a pattern cannot do is span two regions. `before <code>x</code> after` is two regions
+under `html`, and no pattern matches across the element between them.
+
 ## Parsers are optional peer dependencies
 
 Every one is imported only when a rule actually uses the scope that needs it. A repo using
