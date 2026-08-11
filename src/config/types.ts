@@ -13,7 +13,18 @@ export interface CharcheckConfig {
   rules: Rule[];
   /** Applied on top of every rule's own `exclude`. */
   ignore?: string[];
-  /** What counts as rendered text in this repo's components. Not a per-rule property. */
+  /**
+   * Attributes whose value counts as rendered text, for `markup` and `html` alike. Setting
+   * this **replaces** the default allowlist rather than extending it: a repo with its own
+   * text props wants control over the whole list. Not a per-rule property.
+   */
+  textAttributes?: string[];
+  /**
+   * The former home of `textAttributes`, kept working because it shipped. It was named for
+   * `markup` when that was the only scope reading attributes, and `html` reads the same
+   * list. Prefer the top-level key; setting both is a config error rather than a silent
+   * precedence rule.
+   */
   markup?: MarkupOptions;
 }
 

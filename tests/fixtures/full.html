@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>Title —</title>
+    <meta name="description" content="meta —" />
+    <meta name="keywords" content-x="skip —" />
+    <style>
+      /* style — exempt */
+      .a { content: "styled —"; }
+    </style>
+  </head>
+  <body>
+    <!-- comment — exempt -->
+    <p class="cls-—" title="attr —" data-x="d-—">text node —</p>
+    <p>Hard wrapped prose that ends with a
+      continuation — line.</p>
+    <img alt="alt —" src="img—.png" />
+    <img alt=unquoted-— src="b.png" />
+    <p>before <code>code — exempt</code> after —</p>
+    <pre>pre — exempt</pre>
+    <textarea>textarea —</textarea>
+    <template><p>in template —</p></template>
+    <noscript><p>noscript —</p></noscript>
+    <a href="https://x.example/a—b">link text —</a>
+    <script type="module">
+      // a comment — exempt
+      const label = "literal —";
+    </script>
+    <script type="application/ld+json">
+      { "description": "json — exempt" }
+    </script>
+  </body>
+</html>

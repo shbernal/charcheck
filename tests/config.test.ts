@@ -8,6 +8,7 @@ import { EM_DASH, ZERO_WIDTH_SPACE } from '../src/chars.js';
 import { ConfigNotFoundError, loadConfig } from '../src/config/load.js';
 import { fileRules, toScanOptions, virtualRules } from '../src/config/resolve.js';
 import { ConfigError, patternExtensions, validateConfig } from '../src/config/schema.js';
+import type { CharcheckConfig, LoadedConfig } from '../src/config/types.js';
 import { invisibles, noAiPunctuation } from '../src/presets/index.js';
 import { scan } from '../src/scan-files.js';
 
@@ -133,6 +134,40 @@ describe('config validation', () => {
       problemsOf(() => validateConfig({ ...valid, markup: { textAttributes: 'title' } }))[0],
     ).toContain('markup.textAttributes');
     expect(validateConfig({ ...valid, markup: { textAttributes: ['heading'] } })).toBeTruthy();
+  });
+
+  it('validates the top-level attribute allowlist', () => {
+    expect(problemsOf(() => validateConfig({ ...valid, textAttributes: 'title' }))[0]).toContain(
+      '"textAttributes"',
+    );
+    expect(validateConfig({ ...valid, textAttributes: ['heading'] })).toBeTruthy();
+  });
+
+  it('refuses both spellings of the attribute allowlist at once', () => {
+    const problems = problemsOf(() =>
+      validateConfig({ ...valid, textAttributes: ['a'], markup: { textAttributes: ['b'] } }),
+    );
+    expect(problems.join('\n')).toContain('markup.textAttributes');
+  });
+});
+
+describe('the attribute allowlist', () => {
+  const loaded = (config: CharcheckConfig): LoadedConfig => ({
+    config,
+    filepath: '/repo/charcheck.config.js',
+    root: '/repo',
+  });
+  const rules = [{ id: 'a', chars: [EM_DASH], include: ['**/*.html'] }];
+
+  it('reads either spelling, preferring the top-level one', () => {
+    expect(toScanOptions(loaded({ rules, textAttributes: ['a'] })).textAttributes).toEqual(['a']);
+    expect(
+      toScanOptions(loaded({ rules, markup: { textAttributes: ['b'] } })).textAttributes,
+    ).toEqual(['b']);
+  });
+
+  it('is absent when neither is set, so the extractors keep their default', () => {
+    expect(toScanOptions(loaded({ rules })).textAttributes).toBeUndefined();
   });
 });
 

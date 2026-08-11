@@ -59,7 +59,8 @@ import { strategies } from 'charcheck/config';
 ```
 
 It receives `{ container, match, index, scope }`. `container` is the enclosing string
-literal for `strings` and `markup`, and the enclosing **sentence** for `raw` and `markdown`.
+literal for `strings` and `markup`, and the enclosing **sentence** for `raw`, `markdown` and
+the text of an `html` page.
 `index` is
 where `match` starts inside it, which matters because a sentence may hold the same text
 twice and searching for it would answer for the wrong one.

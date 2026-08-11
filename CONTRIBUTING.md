@@ -125,4 +125,5 @@ surface is a new file in `src/scope/` exporting an extractor, one entry in the s
 optional peer dependency declared in `package.json` and imported lazily (never at module top
 level), fixtures under `tests/fixtures/`, and a row in the table in `docs/scopes.md`.
 
-Svelte and plain HTML are the two openly wanted ones. See [Limitations](docs/limitations.md).
+Svelte is the openly wanted one, now that `html` has landed. See
+[Limitations](docs/limitations.md).

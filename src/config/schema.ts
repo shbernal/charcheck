@@ -201,11 +201,23 @@ export function validateConfig(value: unknown, source?: string): CharcheckConfig
 
   if (value['ignore'] !== undefined) stringArray(value['ignore'], '"ignore"', problems);
 
+  if (value['textAttributes'] !== undefined) {
+    stringArray(value['textAttributes'], '"textAttributes"', problems);
+  }
+
   const markup = value['markup'];
   if (markup !== undefined) {
     if (!isRecord(markup)) problems.push('"markup" must be an object.');
     else if (markup['textAttributes'] !== undefined) {
       stringArray(markup['textAttributes'], '"markup.textAttributes"', problems);
+      // Both spellings feed one allowlist, so a config setting both has written two answers
+      // to one question. Picking a winner here would silently discard the other.
+      if (value['textAttributes'] !== undefined) {
+        problems.push(
+          '"textAttributes" and "markup.textAttributes" are both set, and they are the same ' +
+            'setting. Keep the top-level one: it covers the "html" scope as well.',
+        );
+      }
     }
   }
 

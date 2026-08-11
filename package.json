@@ -70,6 +70,7 @@
   "peerDependencies": {
     "@vue/compiler-sfc": "^3.5.0",
     "micromark": "^4.0.0",
+    "parse5": "^8.0.0",
     "typescript": ">=5"
   },
   "peerDependenciesMeta": {
@@ -77,6 +78,9 @@
       "optional": true
     },
     "micromark": {
+      "optional": true
+    },
+    "parse5": {
       "optional": true
     },
     "typescript": {
@@ -89,6 +93,7 @@
     "micromark": "^4.0.2",
     "oxfmt": "^0.62.0",
     "oxlint": "^1.77.0",
+    "parse5": "^8.0.1",
     "typescript": "^5.9.3",
     "typescript-next": "npm:typescript@7.0.2",
     "vitest": "^4.1.10"

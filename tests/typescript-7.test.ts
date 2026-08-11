@@ -236,6 +236,10 @@ describe('the scanner reader, against the syntax tree reader, over real packages
   const packages = ['typescript', '@vue/compiler-sfc', 'tinyglobby', 'picocolors'];
 
   for (const name of packages) {
+    // Parsing the compiler's nine megabytes twice takes seconds on its own, and the suite
+    // runs its files in parallel, so the default five is a budget this sits right on the
+    // edge of: it passes alone and times out under load. The work is genuinely long rather
+    // than slow by accident, so the timeout says so.
     it(`agrees on ${name}`, () => {
       const file = require.resolve(name);
       const source = readFileSync(file, 'utf8');
@@ -244,7 +248,7 @@ describe('the scanner reader, against the syntax tree reader, over real packages
       // literals, and a failed slice comparison prints all of them.
       expect(viaAst.length).toBeGreaterThan(50);
       expect(fromScanner(source, 'js', file, 'strings')).toEqual(viaAst);
-    });
+    }, 30_000);
   }
 });
 

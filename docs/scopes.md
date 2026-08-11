@@ -9,9 +9,10 @@ fails silently, because a scan that reads nothing looks exactly like a scan that
 | `strings`       | String and template literals                                                               | Comments, identifiers, all other code                                             | `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs` | `typescript`                       |
 | `markup`        | Template text, interpolated literals, allowlisted attribute values, and both script blocks | HTML comments, `<style>`, custom blocks, non-allowlisted attributes               | `.vue`                                                       | `@vue/compiler-sfc`, `typescript`* |
 | `markdown`      | Prose: paragraphs, headings, list items, quotes, link text, titles, alt text, frontmatter  | Fenced and indented code, inline code spans, link targets, autolinks, HTML blocks | `.md`, `.markdown`                                           | `micromark`                        |
+| `html`          | Element text, allowlisted attribute values, and the literals in a script                   | Comments, `<style>`, `<code>`, `<pre>`, non-allowlisted attributes, JSON scripts  | `.html`, `.htm`                                              | `parse5`, `typescript`\*           |
 
-\* `markup` reads a component's script blocks and interpolation expressions the way
-`strings` does, so it loads `typescript` too. A component with neither never reaches it.
+\* `markup` and `html` read script blocks and interpolation expressions the way `strings`
+does, so they load `typescript` too. A file with no script never reaches it.
 
 ## One rule, one scope
 
@@ -44,7 +45,7 @@ pattern that names one.
 
 ## Parsers are optional peer dependencies
 
-All three are imported only when a rule actually uses the scope that needs them. A repo using
+Every one is imported only when a rule actually uses the scope that needs it. A repo using
 only `raw` installs nothing extra. When one is missing, the error names the package rather
 than producing a module-not-found trace.
 
@@ -101,10 +102,15 @@ Override it wholesale, since a partial merge would make the default impossible t
 
 ```js
 export default {
-  markup: { textAttributes: ['title', 'alt', 'heading', 'caption'] },
+  textAttributes: ['title', 'alt', 'heading', 'caption'],
   rules: [...],
 };
 ```
+
+One list covers `markup` and `html` both, because it is a statement about attributes rather
+than about the file they are written in. The older spelling, `markup: { textAttributes }`,
+still works and means the same thing; setting both is a config error rather than a silent
+precedence rule.
 
 `markup` covers `.vue` only today. See [Limitations](limitations.md).
 
@@ -141,3 +147,32 @@ the middle of a sentence. Two line endings are a paragraph break and are never j
 `.mdx` is not `.markdown`. It needs the JSX reader and inherits its TypeScript 7
 limitation, so it is a separate surface rather than a spelling of this one. See
 [Limitations](limitations.md).
+
+## `html`
+
+The text a page renders: the text of an element, the values of allowlisted attributes, and
+the string literals inside a `<script>`. The attribute allowlist is the one `markup` uses,
+described above.
+
+What does not count: comments, `<style>`, the values of every attribute off the list, and
+the contents of `<code>`, `<pre>`, `<samp>`, `<kbd>` and `<var>`. Those five are excluded for
+the reason `markdown` skips a fenced block, which is that a documented command is not prose
+and its punctuation is load bearing. A `<script>` whose `type` is not JavaScript, such as
+`application/ld+json` or `text/x-template`, is skipped rather than parsed as code.
+
+`<title>`, `<textarea>` and `<template>` are all read. The first two render, and the third
+renders as soon as something clones it. A `<noscript>` body is parsed as elements rather than
+as raw text, so the prose inside it is reached.
+
+A fix sees the enclosing **sentence**, as under `markdown` and unlike `markup`, because an
+HTML paragraph is hard-wrapped the way Markdown prose is. Text either side of a wrap is one
+region; text either side of a tag is not, so `before <code>x</code> after` is two regions and
+a pattern cannot match across the element between them.
+
+Character references are read as the source wrote them, so the `&` of `&amp;` is one finding
+rather than two, matching `markdown`. Positions are always the original file's: the parser
+inserts an implied `<html>`, `<head>` and `<body>` where a document omits them, and none of
+that reaches disk when a fix is applied.
+
+Templating languages are not understood. A Jinja, Handlebars or ERB expression is text like
+any other, so `{{ user_name }}` is scanned as prose. See [Limitations](limitations.md).

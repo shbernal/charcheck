@@ -4,20 +4,26 @@ Stated here rather than discovered later.
 
 ## Surfaces not reached
 
-- `markup` covers `.vue` only. Svelte and plain HTML are not reachable yet. Both are
-  additive behind the same interface.
+- `markup` covers `.vue` only. Svelte is not reachable yet, and is additive behind the same
+  interface. Plain HTML has its own scope, `html`.
+- `html` covers `.html` and `.htm`. A template language on top of it is not understood: a
+  Jinja, Handlebars or ERB expression is scanned as the prose it looks like, so
+  `{{ user_name }}` is text a rule can match inside.
 - There is no plugin API, by decision. A scope is not something a config can register, so
   the set of surfaces is fixed by the release you have installed. A surface that is missing
   is a feature request rather than a configuration problem.
 - `v-html` content is not reachable and is not attempted.
-- `<style>` blocks are never read, so text in a CSS `content` property is not checked.
+- `<style>` blocks are never read under `markup` or `html`, so text in a CSS `content`
+  property is not checked.
 - Vue custom blocks such as `<i18n>` are skipped, though `<i18n>` does hold rendered text
   and is the first candidate for a follow-up.
 - `markdown` covers `.md` and `.markdown`. `.mdx` is not reachable: it needs the JSX reader
   and would inherit its TypeScript 7 limitation, so it is a separate surface.
 - An HTML block inside a Markdown document is skipped by `markdown`, attributes and text
   alike. Text in one does render, so this is a miss rather than a safe answer, and it is the
-  cheap direction to be wrong in. A rule needing that text can read the file with `raw`.
+  cheap direction to be wrong in. A rule needing that text can read the file with `raw`. The
+  `html` scope does not help here: a rule carries one scope, so `markdown` has no way to hand
+  the block over.
 - A fence's language tag and its meta are skipped, which includes the `title="..."` that
   some site generators render as a caption above a code block.
 

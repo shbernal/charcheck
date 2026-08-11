@@ -2,7 +2,7 @@ import { scan } from '../scan-files.js';
 import type { ScanOptions } from '../scan-files.js';
 import type { Finding, Rule } from '../types.js';
 import { VIRTUAL_PATTERN } from './schema.js';
-import type { LoadedConfig } from './types.js';
+import type { CharcheckConfig, LoadedConfig } from './types.js';
 
 /**
  * Rules targeting a real file, with any virtual pattern removed. A rule that targets only
@@ -24,6 +24,15 @@ export function virtualRules(rules: readonly Rule[], target: string): Rule[] {
   return rules.filter((rule) => rule.include.includes(pattern));
 }
 
+/**
+ * The attribute allowlist, from either spelling. `markup.textAttributes` came first, when
+ * `markup` was the only scope that read attributes; `html` reads the same list, so the key
+ * moved up. The schema rejects a config that sets both.
+ */
+export function textAttributesOf(config: CharcheckConfig): string[] | undefined {
+  return config.textAttributes ?? config.markup?.textAttributes;
+}
+
 export interface ResolveOptions {
   /** Restrict to these paths. Still intersected with each rule's globs. */
   files?: readonly string[];
@@ -37,11 +46,12 @@ export interface ResolveOptions {
  */
 export function toScanOptions(loaded: LoadedConfig, options: ResolveOptions = {}): ScanOptions {
   const { config } = loaded;
+  const textAttributes = textAttributesOf(config);
   return {
     root: options.root ?? loaded.root,
     rules: fileRules(config.rules),
     ...(config.ignore ? { ignore: config.ignore } : {}),
-    ...(config.markup?.textAttributes ? { textAttributes: config.markup.textAttributes } : {}),
+    ...(textAttributes ? { textAttributes } : {}),
     ...(options.files ? { files: options.files } : {}),
   };
 }

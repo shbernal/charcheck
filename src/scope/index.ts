@@ -1,4 +1,5 @@
 import type { Extractor, Scope } from '../types.js';
+import { HTML_EXTENSIONS, htmlExtractor } from './html.js';
 import { MARKDOWN_EXTENSIONS, markdownExtractor } from './markdown.js';
 import { MARKUP_EXTENSIONS, markupExtractor } from './markup.js';
 import { rawExtractor } from './raw.js';
@@ -20,6 +21,7 @@ const EXTRACTORS: Record<Scope, Extractor> = {
   strings: stringsExtractor,
   markup: markupExtractor,
   markdown: markdownExtractor,
+  html: htmlExtractor,
 };
 
 export class UnsupportedScopeError extends Error {
@@ -46,6 +48,7 @@ export const SCOPE_EXTENSIONS: Partial<Record<Scope, readonly string[]>> = {
   strings: STRINGS_EXTENSIONS,
   markup: MARKUP_EXTENSIONS,
   markdown: MARKDOWN_EXTENSIONS,
+  html: HTML_EXTENSIONS,
 };
 
 export function scopeSupportsFile(scope: Scope, file: string): boolean {

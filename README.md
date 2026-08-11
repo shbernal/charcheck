@@ -104,6 +104,7 @@ silently, because a scan that reads nothing looks exactly like a scan that passe
 | `strings`       | String and template literals, never comments           | JavaScript, TypeScript | `typescript`                      |
 | `markup`        | Template text, allowlisted attributes, script blocks   | `.vue`                 | `@vue/compiler-sfc`, `typescript` |
 | `markdown`      | Prose, never fenced or inline code, never link targets | `.md`, `.markdown`     | `micromark`                       |
+| `html`          | Page text, allowlisted attributes, script literals     | `.html`, `.htm`        | `parse5`, `typescript`            |
 
 Every parser is an optional peer dependency, imported only when a rule uses the scope that
 needs it. A repo using only `raw` installs nothing extra. TypeScript 5, 6 and 7 all work:

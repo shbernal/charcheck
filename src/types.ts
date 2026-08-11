@@ -15,11 +15,13 @@ export type Severity = 'error' | 'warn';
  *   attributes, interpolation expressions and script literals.
  * - `markdown` scans the prose of a document: not fenced or indented code, not inline code
  *   spans, not link targets.
+ * - `html` scans the text a page renders: element text, allowlisted attributes and script
+ *   literals, but not comments, styles or code elements.
  *
  * A closed union by decision, not by omission. See the settled design decisions in
  * `CONTRIBUTING.md`: a surface ships in core, and there is no registry a config can add to.
  */
-export type Scope = 'raw' | 'strings' | 'markup' | 'markdown';
+export type Scope = 'raw' | 'strings' | 'markup' | 'markdown' | 'html';
 
 export interface FixContext {
   /** The enclosing literal for `strings` and `markup`, the enclosing sentence for `raw`. */
@@ -91,7 +93,11 @@ export interface Chunk {
 }
 
 export interface ExtractorOptions {
-  /** Attribute names whose static values and bound expressions count as rendered text. */
+  /**
+   * Attribute names whose static values and bound expressions count as rendered text.
+   * Shared by `markup` and `html`: the list is a statement about attributes, not about the
+   * file they are written in.
+   */
   textAttributes?: string[];
 }
 

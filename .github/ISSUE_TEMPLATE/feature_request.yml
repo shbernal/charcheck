@@ -10,7 +10,7 @@ body:
         charcheck to understand natural language. This tool is about characters.
 
         A new **scope**, on the other hand, is the most wanted kind of contribution.
-        Svelte and plain HTML are both openly wanted.
+        Svelte is openly wanted.
 
   - type: textarea
     id: problem

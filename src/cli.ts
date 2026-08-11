@@ -7,7 +7,7 @@ import { parseArgs } from 'node:util';
 
 import { prepareCommitMessage } from './commit-msg.js';
 import { ConfigNotFoundError, loadConfig } from './config/load.js';
-import { toScanOptions, virtualRules } from './config/resolve.js';
+import { textAttributesOf, toScanOptions, virtualRules } from './config/resolve.js';
 import { ConfigError } from './config/schema.js';
 import type { LoadedConfig } from './config/types.js';
 import { fixFiles } from './fix-files.js';
@@ -229,11 +229,10 @@ async function runCommitMsg(
   if (prepared.generated) return undefined;
 
   const display = toPosix(file);
+  const textAttributes = textAttributesOf(loaded.config);
   const findings = await scanText(prepared.masked, display, rules, {
     assumeText: true,
-    ...(loaded.config.markup?.textAttributes
-      ? { textAttributes: loaded.config.markup.textAttributes }
-      : {}),
+    ...(textAttributes ? { textAttributes } : {}),
   });
 
   // The excerpt comes from the original, not the blanked copy.

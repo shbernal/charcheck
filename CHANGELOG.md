@@ -11,6 +11,28 @@ against every entry that does. A patch release does not.
 
 ### Added
 
+- An `html` scope, reading the text a page renders: element text, the values of allowlisted
+  attributes, and the string literals inside a `<script>`. Skips comments, `<style>`, the
+  attributes off the list, and the contents of `<code>`, `<pre>`, `<samp>`, `<kbd>` and
+  `<var>`, for the reason `markdown` skips a fenced block. A `<script>` whose `type` is not
+  JavaScript, such as `application/ld+json`, is skipped rather than read as code, while
+  `<title>`, `<textarea>`, `<template>` and `<noscript>` are all read. Needs the new optional
+  peer `parse5`, imported only when a rule asks for the scope, so nothing changes for a repo
+  that does not. `.html` and `.htm` only.
+
+  Not a breaking change. `Scope` gained a member, which no existing config or typed consumer
+  can notice, and no other exported shape moved.
+
+  A fix in this scope receives the enclosing sentence, as under `markdown`, because an HTML
+  paragraph is hard-wrapped the same way. Text either side of a wrap is one region; text
+  either side of a tag is not, so a pattern cannot match across an element.
+
+- A top-level `textAttributes` config key, which is the allowlist `markup: { textAttributes }`
+  already held. It now covers `html` as well, so it is named for the attributes rather than
+  for one scope. The old spelling still works and means the same thing. Setting both is a
+  config error, since they are one setting and picking a winner would discard the other
+  silently.
+
 - A `markdown` scope, reading the prose of a document and not its code. `raw` sees a fenced
   block as text, which made `docs/**` the glob every consumer reaches for first and the one
   most likely to report a documented shell command as a finding. Covers paragraphs, headings,
