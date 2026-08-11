@@ -149,10 +149,31 @@ describe('scope against extension', () => {
     }
   });
 
-  it('accepts a pattern that can match, including inside a brace group', () => {
-    expect(
+  it('rejects a brace group that reaches past what the scope can read', () => {
+    // The reachable half is no defence: the `.md` files would be scanned as empty and
+    // reported as clean, which is the silent failure this whole check exists to catch.
+    const problems = problemsOf(() =>
       validateConfig({
         rules: [{ id: 'a', chars: [EM_DASH], scope: 'strings', include: ['src/**/*.{ts,md}'] }],
+      }),
+    );
+    expect(problems.join('\n')).toContain('.md');
+    expect(problems.join('\n')).toContain('src/**/*.{ts,md}');
+  });
+
+  it('judges each pattern on its own, so an undecidable one cannot shield the rest', () => {
+    const problems = problemsOf(() =>
+      validateConfig({
+        rules: [{ id: 'a', chars: [EM_DASH], scope: 'markdown', include: ['docs/**', '**/*.ts'] }],
+      }),
+    );
+    expect(problems.join('\n')).toContain('**/*.ts');
+  });
+
+  it('accepts a pattern the scope can read', () => {
+    expect(
+      validateConfig({
+        rules: [{ id: 'a', chars: [EM_DASH], scope: 'markdown', include: ['docs/**/*.md'] }],
       }),
     ).toBeTruthy();
   });

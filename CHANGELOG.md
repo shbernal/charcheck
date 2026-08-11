@@ -31,6 +31,26 @@ against every entry that does. A patch release does not.
 
 ### Changed
 
+- **A config that names an extension its scope cannot read is now rejected, where before it
+  loaded and silently checked nothing.** The check already refused a rule whose patterns
+  could _only_ match unreadable files; it now refuses a pattern that reaches past what the
+  scope reads even when the same pattern also reaches something readable, so
+  `scope: 'markdown'` with `src/**/*.{ts,md}` is an error rather than a rule covering the
+  Markdown half. The error names the pattern and the offending extensions.
+
+  This can reject a config that loaded under 0.1.0, which is why it is here rather than
+  under Fixed, and it is worth the noise: an extractor returns nothing for a file it does not
+  recognize, and nothing is indistinguishable from a clean file. Such a file was listed,
+  read, reported as passing and exited zero, so a rule that had quietly stopped checking half
+  its target looked exactly like a rule finding nothing wrong. That is this tool's
+  characteristic failure and the one thing it must not do.
+
+  The fix in a config is to split the rule and give each surface the scope that reads it,
+  which `docs/scopes.md` now shows. Patterns with no literal extension, such as `docs/**`,
+  are undecidable and are still accepted unchanged.
+
+  No exported shape moved, so this is not a type-level break.
+
 - `clauseSeparator` now writes a pair of parentheses where a pair of dashes bracketed an
   aside, instead of a comma for each. A comma does not bracket, so an aside carrying its own
   commas came out as a flat list and the sentence lost its verb. Over a 126-finding run on a

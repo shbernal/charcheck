@@ -60,8 +60,22 @@ export function patternExtensions(pattern: string): string[] | undefined {
 }
 
 /**
- * A rule whose globs can only ever match files its scope cannot parse scans nothing at
- * all, silently. That looks exactly like a broken tool, so it is a config error.
+ * An include pattern that names an extension its scope cannot read is a config error, even
+ * when the same pattern also names one the scope can.
+ *
+ * The extractors return no chunks for a file they do not recognize, and no chunks is
+ * indistinguishable from a clean file: the scan reports nothing, warns about nothing, and
+ * exits zero. So `scope: 'markdown'` with `**\/*.{ts,md}` quietly stops checking the
+ * TypeScript, and the run that stopped checking it looks exactly like the run that passed.
+ * That is this tool's characteristic silent failure, and catching it here costs nothing at
+ * scan time.
+ *
+ * The fix is to split the rule and give each extension the scope that can read it, which is
+ * why this reports per pattern: the pattern is the thing that has to change.
+ *
+ * A pattern with no literal trailing extension (`docs/**`) is undecidable and is passed
+ * over. It may well match an unreadable file at scan time, but rejecting it here would
+ * reject the most ordinary glob anyone writes.
  *
  * Driven off the scope table, so adding an extractor cannot forget this check.
  */
@@ -70,18 +84,20 @@ function checkScopeAgainstPatterns(rule: Rule, label: string, problems: string[]
   const supported = SCOPE_EXTENSIONS[scope];
   if (!supported || !Array.isArray(rule.include)) return;
 
-  const patterns = rule.include.filter((pattern) => !VIRTUAL_PATTERN.test(pattern));
-  if (patterns.length === 0) return;
+  for (const pattern of rule.include) {
+    if (typeof pattern !== 'string' || VIRTUAL_PATTERN.test(pattern)) continue;
 
-  const decidable = patterns.map(patternExtensions);
-  // Anything undecidable could match a supported file, so there is nothing to prove.
-  if (decidable.some((extensions) => extensions === undefined)) return;
+    const extensions = patternExtensions(pattern);
+    if (extensions === undefined) continue;
 
-  const reachable = decidable.flat().some((extension) => supported.includes(extension as string));
-  if (!reachable) {
+    const unreadable = extensions.filter((extension) => !supported.includes(extension));
+    if (unreadable.length === 0) continue;
+
     problems.push(
       `${label} uses scope "${scope}", which reads only ${supported.join(', ')}, ` +
-        `but none of its include patterns can match such a file.`,
+        `but its include pattern "${pattern}" targets ${unreadable.join(', ')}. ` +
+        `Such a file is scanned as empty and reported as clean, so split the rule and give ` +
+        `each extension a scope that can read it.`,
     );
   }
 }

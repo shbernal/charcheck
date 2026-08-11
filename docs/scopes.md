@@ -13,9 +13,34 @@ fails silently, because a scan that reads nothing looks exactly like a scan that
 \* `markup` reads a component's script blocks and interpolation expressions the way
 `strings` does, so it loads `typescript` too. A component with neither never reaches it.
 
-A rule whose globs can only ever match files its scope cannot read is rejected when the
-config loads, since that is the mistake that otherwise looks like a working tool finding
-nothing.
+## One rule, one scope
+
+A rule carries a single scope, so a rule cannot ban a character across a docs tree and a
+source tree at once. Write one rule per surface:
+
+```js
+rules: [
+  { id: 'no-em-dash-prose', chars: ['\u2014'], scope: 'markdown', include: ['docs/**/*.md'] },
+  { id: 'no-em-dash-code', chars: ['\u2014'], scope: 'strings', include: ['src/**/*.ts'] },
+];
+```
+
+An include pattern naming an extension its scope cannot read is rejected when the config
+loads, and it is rejected even when the same pattern also names one the scope can. So
+`scope: 'markdown'` with `src/**/*.{ts,md}` is an error, not a rule that happens to cover
+the Markdown half.
+
+That is stricter than it may look worth being, and the reason is what the alternative does:
+the extractors return nothing for a file they do not recognize, and nothing is
+indistinguishable from a clean file. The `.ts` files would be listed, read, and reported as
+passing, with no warning and a zero exit. A rule that has quietly stopped checking half its
+target looks exactly like a rule finding nothing wrong, which is the failure this whole
+page is about.
+
+A pattern with no literal extension, such as `docs/**`, is not decidable at config time and
+is left alone. It may still match a file the scope cannot read, and that file is still
+scanned as empty, so a scope with a restricted extension list is worth pairing with a
+pattern that names one.
 
 ## Parsers are optional peer dependencies
 
