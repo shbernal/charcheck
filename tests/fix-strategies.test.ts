@@ -193,6 +193,14 @@ describe('clauseSeparator', () => {
       expect(await fixed(text)).toBe('The wire format is JSON:\nmedia lives behind a reference.\n');
     });
 
+    it('adds no space when the line ends just outside the match', () => {
+      // A region that closes on the dash leaves the break outside the match, so `place` has
+      // no break to put back and has to read the container instead. A space there is
+      // trailing whitespace, and two of them are a hard line break in Markdown.
+      expect(clauseSeparator(context(`a ${EM_DASH}\nb`))).toBe(':');
+      expect(clauseSeparator(context(`a ${EM_DASH}\r\nb`))).toBe(':');
+    });
+
     it('keeps the indent of the line the break lands on', async () => {
       const text = `- The wire format is JSON\n  ${EM_DASH} media lives behind a reference.\n`;
       expect(await fixed(text)).toBe(

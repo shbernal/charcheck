@@ -156,9 +156,9 @@ function findMatches(regex: RegExp, source: string): Matches {
 /**
  * Is it worth running the collector over this chunk?
  *
- * The spans above are the greedy matches, and `collectInChunk` may report a shorter one
- * starting a character later where a greedy match runs past the chunk's end. So the question
- * asked here is the conservative one, whether any greedy match overlaps the chunk at all: a
+ * The spans above are the greedy matches, and `collectInChunk` may report a shorter one in
+ * the same place where a greedy match runs past the chunk's end. So the question asked here
+ * is the conservative one, whether any greedy match overlaps the chunk at all: a
  * chunk holding a match the collector could reach always overlaps one, because the greedy
  * pass cannot walk past a position without matching at or before it. What is actually
  * reported stays the collector's decision.
@@ -191,8 +191,27 @@ function collectInChunk(
   const { regex } = rule;
   regex.lastIndex = chunk.start;
 
+  /**
+   * The text the engine reads, which stops where the chunk does as soon as anything has
+   * tried to match past it.
+   *
+   * A greedy match may run past a chunk's end while a shorter one at the same place fits
+   * inside it, and that shorter one is the finding. `\s*[<dash>]\s*` at the end of a
+   * hard-wrapped line is the case that matters: the trailing `\s*` takes the line ending,
+   * which the Markdown extractor left outside the chunk when the next line opens with an
+   * inline code span, so the whole finding was dropped. Stepping forward a character does
+   * not recover it, because a pattern that ends in the banned character has nothing left to
+   * match once past it. The engine has to be made to backtrack, and truncating what it can
+   * see is the only way to ask it to.
+   *
+   * The truncation is deferred until an overrun happens, so the common case still reads the
+   * file's own string. Slicing a prefix is a view rather than a copy, so the cost is the one
+   * pass the engine was going to make anyway.
+   */
+  let haystack = source;
+
   let match: RegExpExecArray | null;
-  while ((match = regex.exec(source)) !== null) {
+  while ((match = regex.exec(haystack)) !== null) {
     const start = match.index;
     const matched = match[0];
 
@@ -202,10 +221,9 @@ function collectInChunk(
       continue;
     }
     if (start >= chunk.end) break;
-    // A match that runs past the chunk is not inside it. A shorter one may still start
-    // later and fit, so step forward rather than abandoning the chunk.
     if (start + matched.length > chunk.end) {
-      regex.lastIndex = start + 1;
+      haystack = source.slice(0, chunk.end);
+      regex.lastIndex = start;
       continue;
     }
 

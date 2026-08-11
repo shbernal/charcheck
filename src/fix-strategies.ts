@@ -52,6 +52,17 @@ const CLOSING_PUNCTUATION = /^[.,;:!?)\]}]/;
 const LINE_BREAK = /\r?\n/;
 
 /**
+ * The rest of the container being a new line, so the punctuation is the last thing on this
+ * one and a space after it would be trailing whitespace. Two of those are a hard line break
+ * in Markdown and one is what every formatter strips, so neither is something a fix writes.
+ *
+ * Distinct from the break landing inside the match, which `place` puts back. This is the
+ * break that sits just outside it, which is what a chunk ending at the banned character
+ * leaves behind.
+ */
+const ENDS_LINE = /^\r?\n/;
+
+/**
  * Which half of a bracketing pair this dash is, or `null` when it is not one.
  *
  * Exactly two dashes in a sentence is an aside: `normalization — a, b, c — reads as an
@@ -124,7 +135,9 @@ function place(punctuation: string, ctx: FixContext): string {
 
   const rest = ctx.container.slice(ctx.index + ctx.match.length);
   if (opensBracket) return ctx.index === 0 ? punctuation : ` ${punctuation}`;
-  return rest === '' || CLOSING_PUNCTUATION.test(rest) ? punctuation : `${punctuation} `;
+  return rest === '' || CLOSING_PUNCTUATION.test(rest) || ENDS_LINE.test(rest)
+    ? punctuation
+    : `${punctuation} `;
 }
 
 /**
