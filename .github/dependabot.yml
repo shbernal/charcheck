@@ -13,11 +13,16 @@ updates:
       dev-tooling:
         dependency-type: development
         update-types: [minor, patch]
-    # Two TypeScript majors are installed on purpose, and neither is redundant. The peer
-    # range is the wide `>=5`, satisfied two different ways: 5 and 6 are read through the
-    # syntax tree, 7 through the token scanner it left behind. The suite runs both readers
-    # over one corpus and requires identical results, so `typescript` and the aliased
-    # `typescript-next` both have to stay.
+    ignore:
+      # Not a cap on what charcheck supports. The peer range is the wide `>=5`, and 7 is
+      # supported: 5 and 6 are read through the syntax tree, 7 through the token scanner it
+      # left behind. This holds the *devDependency* below 7 so that both readers keep a
+      # compiler to run against, because the suite proves they agree by running them over one
+      # corpus, and `tests/typescript-7.test.ts` asserts as much: a 7 under the
+      # `typescript-next` alias, a 5 or 6 under the plain name. Bumping this one to 7 would
+      # leave the syntax-tree reader with nothing to read.
+      - dependency-name: typescript
+        versions: ['>=7']
 
   - package-ecosystem: github-actions
     directory: /
