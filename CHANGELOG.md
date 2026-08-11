@@ -9,6 +9,8 @@ against every entry that does. A patch release does not.
 
 ## [Unreleased]
 
+## [0.2.1]
+
 ### Added
 
 - A `charcheck-upstream` skill, shipped inside the package under `skills/`, for a project
@@ -22,10 +24,10 @@ against every entry that does. A patch release does not.
 
 - An `agent-report.yml` issue form, for a coding agent filing a defect it hit while running
   charcheck over somebody's repository. The two error messages below link to it and the
-  skill mirrors it when it files through `gh`. It asks for the rule **as it resolved** rather than
-  for the config file, since a pasted config hides which globs reached what, and it asks for
-  the directory segments in those globs to be renamed, `site/.vitepress/**/*.vue` as
-  `dir1/.dir2/**/*.vue`. The shape is the diagnostic and the names are not needed, so a
+  skill mirrors it when it files through `gh`. It asks for the rule **as it resolved**
+  rather than for the config file, since a pasted config hides which globs reached what, and
+  it asks for the directory segments in those globs to be renamed, `site/.vitepress/**/*.vue`
+  as `dir1/.dir2/**/*.vue`. The shape is the diagnostic and the names are not needed, so a
   report can be filed unattended with nothing of the reporter's tree in it.
 
 ### Changed
@@ -314,7 +316,8 @@ First public release.
 `markup` covers `.vue` only, and there is no Markdown code-fence awareness for findings.
 The full list is in [docs/limitations.md](docs/limitations.md).
 
-[unreleased]: https://github.com/shbernal/charcheck/compare/v0.2.0...HEAD
+[unreleased]: https://github.com/shbernal/charcheck/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/shbernal/charcheck/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/shbernal/charcheck/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/shbernal/charcheck/compare/v0.0.2...v0.1.0
 [0.0.2]: https://github.com/shbernal/charcheck/compare/v0.0.1...v0.0.2

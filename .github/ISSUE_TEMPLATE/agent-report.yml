@@ -38,7 +38,7 @@ body:
     attributes:
       label: charcheck version
       description: 'Exact installed version: `node -p "require(''charcheck/package.json'').version"`'
-      placeholder: 0.2.0
+      placeholder: 0.2.1
     validations:
       required: true
 

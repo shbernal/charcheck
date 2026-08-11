@@ -2,7 +2,7 @@
 
 ## Project stage
 
-0.2.0 is published, so compatibility is a real constraint now, but a narrow one:
+0.2.1 is published, so compatibility is a real constraint now, but a narrow one:
 
 - A change to `Rule`, `Scope`, `FixContext`, `ScanOptions` or an exported error class is a
   break. It needs a minor version and a `CHANGELOG.md` entry that says so out loud. Batch
