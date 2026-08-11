@@ -456,7 +456,6 @@ function isEntryPoint(): boolean {
   return real(argv) === real(fileURLToPath(import.meta.url));
 }
 
-/* c8 ignore start */
 if (isEntryPoint()) {
   // process.exitCode, never process.exit: a buffered stdout must be allowed to flush.
   process.exitCode = await run(process.argv.slice(2), {
@@ -465,4 +464,3 @@ if (isEntryPoint()) {
     err: (text) => process.stderr.write(`${text}\n`),
   });
 }
-/* c8 ignore stop */
