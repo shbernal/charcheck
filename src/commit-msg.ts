@@ -6,6 +6,8 @@
  * being committed rather than in the message, which is both wrong and baffling.
  */
 
+import { escapeRegExp } from './regex.js';
+
 /** Git generates these itself, so failing them blames the developer for git's wording. */
 const GENERATED_SUBJECT = /^(Merge|Revert|fixup!|squash!|amend!)/;
 
@@ -33,7 +35,7 @@ export function prepareCommitMessage(text: string, comment: string): PreparedMes
     return { masked: blank(text), generated: true };
   }
 
-  const scissors = new RegExp(`^${escape(comment)} -{4,} >8 -{4,}`);
+  const scissors = new RegExp(`^${escapeRegExp(comment)} -{4,} >8 -{4,}`);
   let afterScissors = false;
 
   const masked = lines
@@ -48,8 +50,4 @@ export function prepareCommitMessage(text: string, comment: string): PreparedMes
     .join('\n');
 
   return { masked, generated: false };
-}
-
-function escape(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

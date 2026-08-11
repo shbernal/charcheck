@@ -1,3 +1,4 @@
+import { escapeRegExp } from './regex.js';
 import type { FixFunction, Rule, Scope, Severity } from './types.js';
 
 export interface CompiledRule {
@@ -16,12 +17,6 @@ export class RuleError extends Error {
     super(message);
     this.name = 'RuleError';
   }
-}
-
-const REGEXP_SPECIALS = /[.*+?^${}()|[\]\\]/g;
-
-function escapeRegExp(value: string): string {
-  return value.replace(REGEXP_SPECIALS, '\\$&');
 }
 
 /**
