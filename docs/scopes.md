@@ -65,7 +65,10 @@ identical results from them over a corpus of pathological sources and every file
 repository. The one place they cannot agree is JSX, described below.
 
 A `typescript` that offers neither API throws `UnsupportedPeerDependencyError`, naming the
-installed version, and only the rules that actually need a parser are affected.
+installed version, and only the rules that actually need a parser are affected. When that
+version is inside the range charcheck claims to support, the message says so and links the
+issue form: a major that moved the API again is charcheck's to fix, not an install to
+downgrade.
 
 ### JSX on TypeScript 7
 

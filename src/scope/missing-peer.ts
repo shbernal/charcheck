@@ -1,3 +1,5 @@
+import { REPORT_ISSUE_URL } from '../report-url.js';
+
 /**
  * Optional peer dependencies are imported lazily, so a consumer that only scans raw text
  * installs nothing extra. When one is genuinely needed, the failure must name the package
@@ -18,6 +20,29 @@ export class MissingPeerDependencyError extends Error {
 }
 
 /**
+ * Whether the installed version reaches the floor the supported range names.
+ *
+ * This is what separates the two failures the class covers, and only one of them is worth a
+ * tracker link. Below the floor is an install the user can fix by upgrading. At or above it,
+ * the package is one charcheck claims to support and still cannot read, which means a major
+ * moved the API again and charcheck has not caught up.
+ *
+ * An absent or unparseable version counts as at or above, because that is the shape the
+ * newer case actually arrives in: the package resolved, offered no API either reader knows,
+ * and could not be identified. Guessing the other way would withhold the link from exactly
+ * the report that is wanted.
+ */
+function meetsSupportedFloor(
+  installedVersion: string | undefined,
+  supportedRange: string,
+): boolean {
+  const floor = Number(/(\d+)/.exec(supportedRange)?.[1]);
+  const major = Number(/^\D*(\d+)/.exec(installedVersion ?? '')?.[1]);
+  if (!Number.isFinite(floor) || !Number.isFinite(major)) return true;
+  return major >= floor;
+}
+
+/**
  * Installed, resolvable, and still unusable. TypeScript 7 is the case this exists for: it
  * moved the compiler API out of the package root, so the import succeeds and every call
  * against it fails. Without this the user sees a property access on undefined.
@@ -34,10 +59,15 @@ export class UnsupportedPeerDependencyError extends Error {
   ) {
     const found =
       installedVersion === undefined ? 'the installed copy' : `version ${installedVersion}`;
+    const advice = meetsSupportedFloor(installedVersion, supportedRange)
+      ? `That is inside the range charcheck supports, so this one is charcheck's to fix. ` +
+        `Please report it with the "${packageName}" version: ${REPORT_ISSUE_URL} Until a ` +
+        `release carries it, pin a version this one can parse with, or drop the rules that ` +
+        `use this scope.`
+      : `Install a supported version, or drop the rules that use this scope.`;
     super(
       `The "${scope}" scope needs "${packageName}" ${supportedRange}, and ${found} does not ` +
-        `provide the API it parses with. Install a supported version, or drop the rules that ` +
-        `use this scope.`,
+        `provide the API it parses with. ${advice}`,
     );
     this.name = 'UnsupportedPeerDependencyError';
     this.packageName = packageName;

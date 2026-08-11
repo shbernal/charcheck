@@ -9,13 +9,15 @@
  * what a passing scan looks like.
  */
 
+import { REPORT_ISSUE_URL } from '../report-url.js';
 import type { TokenKinds } from './token-scan.js';
 
 export class UnknownTokenKindError extends Error {
   constructor(names: readonly string[]) {
     super(
       `This TypeScript's SyntaxKind has no ${names.map((name) => `"${name}"`).join(' or ')}. ` +
-        `charcheck cannot scan with it. Please report this with the TypeScript version.`,
+        `charcheck cannot scan with it, and this one is charcheck's to fix. Please report ` +
+        `it with the TypeScript version: ${REPORT_ISSUE_URL}`,
     );
     this.name = 'UnknownTokenKindError';
   }

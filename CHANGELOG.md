@@ -34,6 +34,20 @@ against every entry that does. A patch release does not.
 - The `pretty` reporter splits a file into lines once rather than once per finding, which a
   file with many findings paid for quadratically.
 
+- `UnknownTokenKindError` now names where to report it. Its message already asked for the
+  TypeScript version and gave nowhere to send it, which for the one error charcheck declares
+  entirely its own is the wrong half of the sentence to leave out.
+
+- `UnsupportedPeerDependencyError` distinguishes the two installs it used to describe
+  identically. A version below the floor of the supported range is an install to upgrade and
+  the message is unchanged. A version inside that range that still offers no API either
+  reader knows means a major moved the API again, which is charcheck's to fix, so the message
+  says so and links the issue form. A version that could not be read at all counts as the
+  second case, since that is the shape it arrives in. Neither the class nor its constructor
+  changed, so this is not a compatibility break, and no other error class gained a link: a
+  config error, a missing peer, and a refused JSX file are the user's, and pointing those at
+  a tracker manufactures noise.
+
 - `docs/limitations.md` gives every limitation its own heading, so each one can be linked to
   by name rather than by page. The issue forms point into it, which is why the page now says
   at the top that renaming a heading breaks those links.
