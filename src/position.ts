@@ -1,3 +1,5 @@
+import { floorIndex } from './search.js';
+
 /**
  * One line index per file, binary-searched per match. A file with many findings must stay
  * linear in its size, not quadratic.
@@ -15,19 +17,6 @@ export function buildLineIndex(text: string): LineIndex {
   return { starts };
 }
 
-/** 0-based line number containing `offset`. */
-function lineIndexAt(index: LineIndex, offset: number): number {
-  const { starts } = index;
-  let low = 0;
-  let high = starts.length - 1;
-  while (low < high) {
-    const mid = (low + high + 1) >> 1;
-    if (starts[mid]! <= offset) low = mid;
-    else high = mid - 1;
-  }
-  return low;
-}
-
 export interface Position {
   /** 1-based. */
   line: number;
@@ -36,6 +25,6 @@ export interface Position {
 }
 
 export function positionAt(index: LineIndex, offset: number): Position {
-  const line = lineIndexAt(index, offset);
+  const line = floorIndex(index.starts, offset);
   return { line: line + 1, column: offset - index.starts[line]! + 1 };
 }

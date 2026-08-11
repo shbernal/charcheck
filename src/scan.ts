@@ -3,6 +3,7 @@ import { buildLineIndex, positionAt } from './position.js';
 import type { LineIndex } from './position.js';
 import { compileRule } from './rule.js';
 import type { CompiledRule } from './rule.js';
+import { firstAbove } from './search.js';
 import { buildSentenceIndex, sentenceAt } from './sentence.js';
 import type { SentenceIndex } from './sentence.js';
 import { getExtractor } from './scope/index.js';
@@ -165,17 +166,9 @@ function findMatches(regex: RegExp, source: string): Matches {
  */
 function mayMatch(matches: Matches, chunk: Chunk): boolean {
   const { starts, ends } = matches;
-
   // The first span ending after the chunk opens. `ends` ascends, so this is a binary search.
-  let low = 0;
-  let high = ends.length;
-  while (low < high) {
-    const mid = (low + high) >> 1;
-    if (ends[mid]! > chunk.start) high = mid;
-    else low = mid + 1;
-  }
-
-  return low < starts.length && starts[low]! < chunk.end;
+  const first = firstAbove(ends, chunk.start);
+  return first < starts.length && starts[first]! < chunk.end;
 }
 
 function collectInChunk(

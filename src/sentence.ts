@@ -23,6 +23,8 @@
  * better, in a diff the tool already tells you to read.
  */
 
+import { floorIndex } from './search.js';
+
 /** Terminal punctuation, any closing quote or bracket after it, then whitespace. */
 const TERMINATOR = /[.!?;]["'`)\]]*\s/g;
 
@@ -92,15 +94,9 @@ export interface Sentence {
 /** The sentence containing `offset`. */
 export function sentenceAt(index: SentenceIndex, offset: number): Sentence {
   const { starts, text } = index;
-  let low = 0;
-  let high = starts.length - 1;
-  while (low < high) {
-    const mid = (low + high + 1) >> 1;
-    if (starts[mid]! <= offset) low = mid;
-    else high = mid - 1;
-  }
-  const from = starts[low]!;
-  const to = starts[low + 1] ?? text.length;
+  const at = floorIndex(starts, offset);
+  const from = starts[at]!;
+  const to = starts[at + 1] ?? text.length;
   const raw = text.slice(from, to);
   const lead = raw.length - raw.trimStart().length;
   return { text: raw.trim(), start: from + lead };

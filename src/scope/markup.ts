@@ -1,26 +1,9 @@
 import type { Chunk, Extractor } from '../types.js';
+import { matchesExtension } from './extensions.js';
 import { importPeer } from './missing-peer.js';
 import { extractLiteralChunks } from './strings.js';
 import type { ScriptLanguage } from './strings.js';
-
-/**
- * Attributes whose value is text a user reads. Scanning every attribute would flag class
- * names, URLs and data attributes, so this is an allowlist rather than a denylist. It is
- * configurable, because a design system's own `heading="..."` prop should be reachable
- * without a change here.
- */
-export const DEFAULT_TEXT_ATTRIBUTES = [
-  'title',
-  'alt',
-  'placeholder',
-  'label',
-  'aria-label',
-  'aria-description',
-  'aria-placeholder',
-];
-
-/** `content` renders only on a meta tag; anywhere else it is a component's own prop. */
-const META_ONLY_ATTRIBUTE = 'content';
+import { allows, DEFAULT_TEXT_ATTRIBUTES } from './text-attributes.js';
 
 export const MARKUP_EXTENSIONS = ['.vue'];
 
@@ -81,13 +64,6 @@ function isAstNode(value: unknown): value is AstNode {
   return typeof value === 'object' && value !== null && 'type' in value && 'loc' in value;
 }
 
-function allows(attributes: Set<string>, tag: string | undefined, name: string): boolean {
-  if (name === META_ONLY_ATTRIBUTE && !attributes.has(META_ONLY_ATTRIBUTE)) {
-    return tag?.toLowerCase() === 'meta';
-  }
-  return attributes.has(name);
-}
-
 /** The static name of a bound attribute: `:title` and `v-bind:title` are both `title`. */
 function boundAttributeName(node: AstNode): string | undefined {
   if (node.name !== 'bind') return undefined;
@@ -97,7 +73,7 @@ function boundAttributeName(node: AstNode): string | undefined {
 }
 
 export const markupExtractor: Extractor = async (text, file, options) => {
-  if (!MARKUP_EXTENSIONS.some((extension) => file.toLowerCase().endsWith(extension))) return [];
+  if (!matchesExtension(MARKUP_EXTENSIONS, file)) return [];
 
   const { parse } = await importPeer(
     '@vue/compiler-sfc',

@@ -1,4 +1,5 @@
 import type { Chunk, Extractor } from '../types.js';
+import { matchesExtension } from './extensions.js';
 import { importPeer } from './missing-peer.js';
 
 export const MARKDOWN_EXTENSIONS = ['.md', '.markdown'];
@@ -169,7 +170,7 @@ function joinHardWraps(spans: readonly Span[], text: string): Chunk[] {
 }
 
 export const markdownExtractor: Extractor = async (text, file) => {
-  if (!MARKDOWN_EXTENSIONS.some((extension) => file.toLowerCase().endsWith(extension))) return [];
+  if (!matchesExtension(MARKDOWN_EXTENSIONS, file)) return [];
   if (text.length === 0) return [];
 
   const { parse, postprocess, preprocess } = await importPeer(

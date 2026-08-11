@@ -170,7 +170,9 @@ function validateRule(value: unknown, index: number, problems: string[]): void {
     problems.push(`${name}.message must be a string.`);
   }
 
-  if (problems.length === 0 || typeof id === 'string') {
+  // Only for a rule that named itself, so the message below can say which rule it is about.
+  // `problems` accumulates across every rule, so it can say nothing about this one.
+  if (typeof id === 'string') {
     checkScopeAgainstPatterns(value as unknown as Rule, name, problems);
   }
 }

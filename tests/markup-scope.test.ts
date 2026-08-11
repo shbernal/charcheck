@@ -7,9 +7,9 @@ import { describe, expect, it } from 'vitest';
 import { EM_DASH } from '../src/chars.js';
 import { applyFixes } from '../src/fix.js';
 import { scanText } from '../src/scan.js';
-import { DEFAULT_TEXT_ATTRIBUTES } from '../src/scope/markup.js';
 import { MissingPeerDependencyError } from '../src/scope/missing-peer.js';
 import { scopeSupportsFile } from '../src/scope/index.js';
+import { DEFAULT_TEXT_ATTRIBUTES } from '../src/scope/text-attributes.js';
 import { rule } from './helpers.js';
 
 const FIXTURES = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');

@@ -115,5 +115,3 @@ export function invisibles(options: PresetOptions): Rule[] {
     ),
   ];
 }
-
-export const presets = { noAiPunctuation, invisibles };

@@ -61,6 +61,15 @@ export function isInvisibleText(value: string): boolean {
   );
 }
 
+/**
+ * Three functions here and in `report/issue.ts` render a code point, and they are not
+ * interchangeable. This one writes a character class body for a regular expression,
+ * `describeChars` below writes `U+2014` labels for a person reading a message, and
+ * `escapeUnicode` in `report/issue.ts` writes a backslash-u escape for text that has to
+ * survive a clipboard and an issue form. Reach for the one whose reader you are writing
+ * for rather than adding a fourth.
+ */
+
 /** A character class body, escaped for use inside `[...]`. */
 export function charClass(chars: readonly string[]): string {
   return chars.map((char) => `\\u${char.codePointAt(0)!.toString(16).padStart(4, '0')}`).join('');

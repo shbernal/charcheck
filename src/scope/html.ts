@@ -1,12 +1,10 @@
 import type { Chunk, Extractor } from '../types.js';
-import { DEFAULT_TEXT_ATTRIBUTES } from './markup.js';
+import { matchesExtension } from './extensions.js';
 import { importPeer } from './missing-peer.js';
 import { extractLiteralChunks } from './strings.js';
+import { allows, DEFAULT_TEXT_ATTRIBUTES } from './text-attributes.js';
 
 export const HTML_EXTENSIONS = ['.html', '.htm'];
-
-/** `content` renders only on a meta tag; anywhere else it is a data attribute. */
-const META_ONLY_ATTRIBUTE = 'content';
 
 /**
  * Elements whose contents are never prose. `style` for the reason `markup` skips it, and the
@@ -83,11 +81,6 @@ function splitTextAdapter(base: Record<string, unknown>): Record<string, unknown
   };
 }
 
-function allows(attributes: Set<string>, tag: string | undefined, name: string): boolean {
-  if (name === META_ONLY_ATTRIBUTE && !attributes.has(META_ONLY_ATTRIBUTE)) return tag === 'meta';
-  return attributes.has(name);
-}
-
 /**
  * parse5 locates an attribute as the whole `name="value"` run, so the value is found within
  * it. Unquoted and valueless forms both occur in documents people actually write.
@@ -142,7 +135,7 @@ function joinContiguous(spans: Span[], text: string): Chunk[] {
 }
 
 export const htmlExtractor: Extractor = async (text, file, options) => {
-  if (!HTML_EXTENSIONS.some((extension) => file.toLowerCase().endsWith(extension))) return [];
+  if (!matchesExtension(HTML_EXTENSIONS, file)) return [];
 
   const { parse, defaultTreeAdapter } = await importPeer('parse5', 'html', () => import('parse5'));
 

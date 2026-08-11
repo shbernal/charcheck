@@ -40,7 +40,19 @@ against every entry that does. A patch release does not.
   field that failed to serialize in the one output whose purpose is to be read closely for
   anomalies. ([#15](https://github.com/shbernal/charcheck/issues/15))
 
-## [0.2.2]
+### Removed
+
+- **Breaking, and only for a caller that found it without documentation.** The `presets`
+  object exported from `charcheck/presets`, which held the same two functions the entry
+  point already exports by name. It appeared in no page of the docs and in no example.
+  `import { noAiPunctuation, invisibles } from 'charcheck/presets'` is what every documented
+  usage already writes, and is unaffected.
+
+### Changed
+
+- `charcheck/config` documents `loadConfig` and `scanWithConfig` in the API reference. Both
+  shipped from the first release and neither had a page, so the only way to find the config
+  entry point's scanning path was to read its exports.
 
 ### Added
 

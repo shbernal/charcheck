@@ -1,4 +1,5 @@
 import type { Extractor, Scope } from '../types.js';
+import { matchesExtension } from './extensions.js';
 import { HTML_EXTENSIONS, htmlExtractor } from './html.js';
 import { MARKDOWN_EXTENSIONS, markdownExtractor } from './markdown.js';
 import { MARKUP_EXTENSIONS, markupExtractor } from './markup.js';
@@ -10,7 +11,7 @@ export {
   MissingPeerDependencyError,
   UnsupportedPeerDependencyError,
 } from './missing-peer.js';
-export { DEFAULT_TEXT_ATTRIBUTES } from './markup.js';
+export { DEFAULT_TEXT_ATTRIBUTES } from './text-attributes.js';
 
 /**
  * The scope table. A scope is an extractor, not a branch in the scanner, so a new surface
@@ -53,7 +54,5 @@ export const SCOPE_EXTENSIONS: Partial<Record<Scope, readonly string[]>> = {
 
 export function scopeSupportsFile(scope: Scope, file: string): boolean {
   const extensions = SCOPE_EXTENSIONS[scope];
-  if (!extensions) return true;
-  const lower = file.toLowerCase();
-  return extensions.some((extension) => lower.endsWith(extension));
+  return extensions === undefined || matchesExtension(extensions, file);
 }

@@ -7,7 +7,7 @@
     "rootDir": "src",
     "declaration": true,
     "sourceMap": true,
-    "tsBuildInfoFile": ".tsbuildinfo"
+    "tsBuildInfoFile": "node_modules/.cache/charcheck.tsbuildinfo"
   },
   "include": ["src/**/*.ts"]
 }

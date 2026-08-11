@@ -156,6 +156,18 @@ export function scannerReader(
 let cachedReader: LiteralReader | undefined;
 
 /**
+ * Drops the memoized reader, so the next call decides again.
+ *
+ * For a test that has to observe the decision itself, which is otherwise made once per
+ * process and inherited by every test after the first one to scan anything. Not exported
+ * from the package: a scan cannot want this, because the installed package cannot change
+ * while one is running.
+ */
+export function resetLiteralReader(): void {
+  cachedReader = undefined;
+}
+
+/**
  * Loads the peer and picks the reader by what it can do, not by what it calls itself, so a
  * major that keeps an API keeps working without a release here.
  */
