@@ -115,6 +115,28 @@ function chars(rule: Rule): string {
   return `- chars: ${(rule.chars ?? []).map((char) => `\`${escapeUnicode(char)}\``).join(', ')}`;
 }
 
+/**
+ * The top-level `ignore`, which is part of how every rule below resolved.
+ *
+ * It subtracts from every rule's match set exactly as that rule's own `exclude` does, and a
+ * file it removes is as unscanned as one no `include` ever reached. Leaving it out left a
+ * report whose matched counts could not be reconciled with the globs printed beside them: an
+ * `include` reaching three files, an empty `exclude` and a count of two, with no fact present
+ * that explains the third. That is the arithmetic this flag exists to make visible, and a
+ * rule driven to zero by a broad `ignore` reads exactly like one driven to zero by a wrong
+ * `include`, which has the opposite fix.
+ */
+function describeIgnore(
+  configured: readonly string[],
+  anonymize: (pattern: string) => string,
+): string {
+  const always = `${DEFAULT_IGNORE.map((pattern) => `\`${pattern}\``).join(' and ')}, which are always ignored`;
+  return configured.length === 0
+    ? `No top-level \`ignore\` is set, so the only paths subtracted from every rule are ${always}.`
+    : `A top-level \`ignore\` subtracts from every rule below, alongside ${always}: ` +
+        `${patterns(configured, anonymize)}.`;
+}
+
 async function describeRule(
   rule: Rule,
   index: number,
@@ -217,6 +239,9 @@ export async function formatIssueReport(options: IssueReportOptions): Promise<st
           .map((peer, index) => `- \`${peer}\`: ${versions[index] ?? 'not installed'}`)
           .join('\n');
 
+  // Before the rules, so the placeholders stay numbered in the order they are read.
+  const ignoreNote = describeIgnore(loaded.config.ignore ?? [], anonymize);
+
   const resolved = await Promise.all(
     rules.map((rule, index) => describeRule(rule, index, loaded, ignore, anonymize)),
   );
@@ -237,6 +262,7 @@ export async function formatIssueReport(options: IssueReportOptions): Promise<st
     `Read from \`${path.basename(loaded.filepath)}\`, with every glob resolved against the ` +
       `directory holding that file.`,
     options.verbatim === true ? VERBATIM_NOTE : ANONYMIZED_NOTE,
+    ignoreNote,
     ...resolved,
     PLACEHOLDERS,
   ].join('\n\n');

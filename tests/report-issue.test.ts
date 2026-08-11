@@ -159,6 +159,63 @@ describe('--report-issue', () => {
     expect(result.out).not.toContain('reword');
   });
 
+  it('prints the top-level ignore, without which a matched count cannot be reconciled', async () => {
+    await write(
+      'charcheck.config.json',
+      JSON.stringify({
+        rules: [{ id: 'r', chars: [EM_DASH], include: ['acme/**/*.md'] }],
+        ignore: ['acme/vendor/**'],
+      }),
+    );
+
+    const result = await cli(['--report-issue']);
+
+    // The glob reaches three files and two survive. Without the ignore printed, the third is
+    // unaccounted for, and a rule driven to zero by an ignore reads like one driven to zero
+    // by a wrong include, which has the opposite fix.
+    expect(result.out).toContain('A top-level `ignore` subtracts from every rule below');
+    expect(result.out).toContain('`dir1/dir2/**`');
+    expect(result.out).toContain('- matched: 2 file(s)');
+    expect(result.out).not.toContain('acme');
+  });
+
+  it('numbers the ignore placeholders in reading order, sharing them with the rules', async () => {
+    await write(
+      'charcheck.config.json',
+      JSON.stringify({
+        rules: [{ id: 'r', chars: [EM_DASH], include: ['acme/**/*.md'] }],
+        ignore: ['acme/vendor/**'],
+      }),
+    );
+
+    const result = await cli(['--report-issue']);
+
+    // One renamer covers the whole report, so the directory the ignore and the include share
+    // has to look shared, and the numbering has to follow the order a reader meets them in.
+    expect(result.out.indexOf('`dir1/dir2/**`')).toBeLessThan(result.out.indexOf('- include:'));
+    expect(result.out).toContain('- include: `dir1/**/*.md`');
+  });
+
+  it('says so when no top-level ignore is set, rather than staying silent', async () => {
+    const result = await cli(['--report-issue']);
+
+    expect(result.out).toContain('No top-level `ignore` is set');
+  });
+
+  it('keeps the real ignore globs under --verbatim', async () => {
+    await write(
+      'charcheck.config.json',
+      JSON.stringify({
+        rules: [{ id: 'r', chars: [EM_DASH], include: ['acme/**/*.md'] }],
+        ignore: ['acme/vendor/**'],
+      }),
+    );
+
+    const result = await cli(['--report-issue', '--verbatim']);
+
+    expect(result.out).toContain('`acme/vendor/**`');
+  });
+
   it('reads an empty exclude as none, the same as an absent one', async () => {
     await write(
       'charcheck.config.json',
