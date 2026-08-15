@@ -137,6 +137,18 @@ Not closed forever, but reopening one needs a reason beyond preference:
   after `--baseline` cannot be told apart from a path to scan, so the baseline's path lives
   in the config and the flag is a boolean. Adding the first subcommand is a bigger decision
   than whatever feature is asking for it, and `parseArgs` cannot express an optional value.
+- **The suppression marker is `charcheck-disable-*` and is not configurable.** Making it a
+  config key would coincidentally couple text on disk to a config value: change the key and
+  every marker already written stops suppressing, silently. It would also have to reach
+  `parseSuppressions` through `ExtractorOptions`, which widens the frozen surface and costs a
+  minor. The case that asked for it was a repo with an existing marker of its own, and the
+  answer to that is a `sed` over the tree, once and reviewable in the diff, or a baseline
+  recording the occurrences so they can be migrated at leisure.
+- **`--fix --staged` will not fix a file that differs from the index.** Not for the fix's
+  sake, which the offset check already covers, but for the `git add` after it: staging takes
+  a whole file, so fixing one line of a half-staged file commits every other unstaged change
+  in it. Per file, so the rest of the commit is still fixed, and there is no flag to override
+  it: the honest answer to a dirty file is to stage or stash it.
 - **`JsxUnsupportedError` stays exported.** It looks internal, since `scan` catches it and
   no CLI code names it, but `scan-files.ts` hands the instance to `ScanOptions.onSkipped`.
   An API consumer therefore receives one and can legitimately branch on it with
