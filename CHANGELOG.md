@@ -36,6 +36,27 @@ against every entry that does. A patch release does not.
   entries it held, without which the matched counts in that report cannot be reconciled with
   what the run printed.
 
+### Changed
+
+- **`--fix` rewrites and re-scans until the tree stops changing, rather than making one
+  pass.** A replacement is arbitrary text and can hold exactly what another rule bans: a
+  house style rewriting the em dash to an en dash, beside a rule banning the en dash, left
+  the en dash on disk and reported it, so the same command run twice gave two different
+  results. A fix skipped because a narrower rewrite already covered its span is likewise
+  re-judged against the file as it now reads instead of being dropped for the run. The count
+  in `Fixed n findings` is the total over every pass, since every one of them was written.
+
+- **Two rules rewriting each other now stop the run instead of settling it arbitrarily.**
+  After ten passes with the text still changing, charcheck says which situation it is in and
+  exits 2 unless the remaining findings already earned 1. The files hold what the last pass
+  wrote, which is one side of the argument, and the previous behaviour would have called that
+  a clean fix: an oscillation between two warn-severity rules exited 0 over a file it had
+  just rewritten.
+
+- A file that no scope can read is counted and reported once per run rather than once per
+  look. Only `--fix` scans more than once, so this was previously visible only there, where a
+  single unreadable file reported itself as two and explained itself twice.
+
 ## [0.2.4]
 
 ### Fixed
