@@ -1,2 +1,7 @@
 allowBuilds:
   esbuild: true
+
+# Refuse a dependency younger than the release-age floor rather than silently falling back
+# to an older version. A compromised release is caught by waiting, and a quiet downgrade
+# would hide the wait having happened at all.
+minimumReleaseAgeStrict: true
