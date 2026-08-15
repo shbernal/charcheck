@@ -9,6 +9,33 @@ against every entry that does. A patch release does not.
 
 ## [Unreleased]
 
+### Added
+
+- **A baseline file, so a repository that is not at zero can turn charcheck on in CI.**
+  `charcheck --baseline-write` records every finding the tree has today in
+  `charcheck-baseline.json` beside the config; `--baseline` then reports and fails on the new
+  ones alone. `--max-warnings` was the only answer before, and it only buys a number. The
+  recorded findings are still scanned, still fixable and still counted in the summary: this
+  subtracts nothing from what the tool sees, only from what it fails on. See
+  [Baseline](docs/baseline.md).
+
+  An entry names a file, a rule, and a hash of the text around the match with whitespace
+  collapsed, so re-wrapping a paragraph invalidates nothing and no line number ever goes
+  stale. Where the text has moved, matching falls back to counting per file and rule, so a
+  pull request that only fixed things cannot fail.
+
+  Nothing on the frozen public surface changed. `scan()` still returns every finding, and the
+  partition happens above it, which is why this is a patch.
+
+- `--baseline-strict` also fails on an entry whose finding is gone, which is off by default
+  because such an entry means somebody fixed something. `--no-baseline` ignores the file for
+  one run. The `baseline` config key takes `true` for the default path or a path of its own.
+
+- `--fix` prunes the entries it just made unmatchable, and rewrites the ones that stayed as
+  the text now reads. `--report-issue` names whether a baseline was in use and how many
+  entries it held, without which the matched counts in that report cannot be reconciled with
+  what the run printed.
+
 ## [0.2.4]
 
 ### Fixed
