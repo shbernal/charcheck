@@ -57,9 +57,13 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
   // A file a rule targets and no scope can read. The scan keeps going, so the report still
   // covers everything else, but the run cannot be called clean: the answer for that file is
   // not "no findings", it is "not looked at".
-  const skipped: string[] = [];
+  // A set rather than a list, because `--fix` scans more than once and a file no scope can
+  // read is unreadable on every pass. Counted per look, one such file reported itself as
+  // two, and said why twice.
+  const skipped = new Set<string>();
   const skip = (file: string, error: Error): void => {
-    skipped.push(file);
+    if (skipped.has(file)) return;
+    skipped.add(file);
     warn(error.message);
   };
 
@@ -120,12 +124,12 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
   let staleFails = false;
 
   if (use !== undefined) {
-    if (use.write && skipped.length > 0) {
+    if (use.write && skipped.size > 0) {
       // The write records what the run saw as all there is. A file that could not be read
       // has no findings, and recording that as zero says known-good in a way no later run
       // can tell from the real thing.
       warn(
-        `refusing to write the baseline: ${plural(skipped.length, 'file')} could not be ` +
+        `refusing to write the baseline: ${plural(skipped.size, 'file')} could not be ` +
           `scanned, and would be recorded as having nothing wrong.`,
       );
       return EXIT_USAGE;
@@ -211,9 +215,9 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
     return EXIT_FINDINGS;
   }
   if (staleFails) return EXIT_FINDINGS;
-  if (skipped.length > 0) {
+  if (skipped.size > 0) {
     // Reported after the findings, so the list is the last thing on the screen.
-    warn(`${String(skipped.length)} file(s) could not be scanned. This run is not a pass.`);
+    warn(`${String(skipped.size)} file(s) could not be scanned. This run is not a pass.`);
     return EXIT_USAGE;
   }
   return EXIT_OK;
