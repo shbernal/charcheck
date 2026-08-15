@@ -87,8 +87,15 @@ pushing a tag:
 3. Commit, then `git tag -a vX.Y.Z -m "vX.Y.Z"` and push both the branch and the tag.
 
 The workflow refuses to continue if the tag disagrees with `package.json`, if that version is
-already on the registry, if `pnpm run check` fails, or if `CHANGELOG.md` has no section for
-the tag. It then publishes and opens a GitHub release carrying that section as its notes.
+already on the registry, if publishing it would move the registry's `latest` tag backwards,
+if `pnpm run check` fails, or if `CHANGELOG.md` has no section for the tag. It then publishes
+and opens a GitHub release carrying that section as its notes.
+
+That third one is worth knowing about before it stops you. `npm publish` points `latest` at
+whatever it published last, in publication order rather than version order, so re-pushing an
+old tag quietly makes a plain `npm install` resolve to an older release. Nothing about such a
+run looks wrong. To ship a genuine backport, publish it by hand under its own dist-tag rather
+than through this workflow.
 
 There is no npm token in this repository. npm authenticates the workflow through trusted
 publishing, which identifies it by its path, so renaming the file stops publishing until the

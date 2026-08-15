@@ -54,6 +54,45 @@ jobs:
             exit 1
           fi
 
+      # The guard above only catches republishing the *same* version. Publishing an *older*
+      # one is the failure that actually happened: `npm publish` moves the `latest` tag to
+      # whatever it published last, regardless of order, so re-pushing an old tag silently
+      # made `npm install charcheck` resolve to a version three releases behind. Nothing in
+      # the run looked wrong, because nothing was.
+      - name: The tag must not move the latest tag backwards
+        run: |
+          name="$(node -p 'require("./package.json").name')"
+          version="$(node -p 'require("./package.json").version')"
+          latest="$(npm view "$name" version 2>/dev/null || true)"
+          if [ -z "$latest" ]; then
+            echo "Nothing on the registry yet, so there is no latest tag to move."
+            exit 0
+          fi
+          # Semver ordering, not `sort -V`: that one ranks 1.0.0-rc.1 above 1.0.0.
+          if ! node -e '
+            const rank = (v) => {
+              const [core, pre] = v.split("-");
+              return { nums: core.split(".").map(Number), pre };
+            };
+            const [candidate, current] = [rank(process.argv[1]), rank(process.argv[2])];
+            const atOrAbove = () => {
+              for (let i = 0; i < 3; i += 1) {
+                if (candidate.nums[i] !== current.nums[i]) return candidate.nums[i] > current.nums[i];
+              }
+              if (candidate.pre === current.pre) return true;
+              if (candidate.pre === undefined) return true;
+              if (current.pre === undefined) return false;
+              return candidate.pre >= current.pre;
+            };
+            process.exit(atOrAbove() ? 0 : 1);
+          ' "$version" "$latest"; then
+            echo "Tag $GITHUB_REF_NAME publishes $version, but the registry's latest is $latest." >&2
+            echo "Publishing would move the latest tag backwards and every plain install with" >&2
+            echo "it. If this is a deliberate backport, publish it under its own dist-tag by" >&2
+            echo "hand rather than through this workflow." >&2
+            exit 1
+          fi
+
       # typecheck, lint, format, test, build, then charcheck over this repo.
       - run: pnpm run check
 
