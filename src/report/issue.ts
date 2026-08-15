@@ -7,6 +7,7 @@ import { readBaseline } from '../baseline.js';
 import { fileRules } from '../config/resolve.js';
 import type { LoadedConfig } from '../config/types.js';
 import { DEFAULT_IGNORE, filesForRule } from '../scan-files.js';
+import { scopeSupportsFile } from '../scope/index.js';
 import type { Rule, Scope } from '../types.js';
 import { createGlobAnonymizer } from './anonymize.js';
 
@@ -204,7 +205,20 @@ async function describeRule(
     lines.push('- matched: not a file rule, so no glob was resolved');
   } else {
     const matched = await filesForRule(loaded.root, scannable, ignore);
-    lines.push(`- matched: ${String(matched.length)} file(s)`);
+    // How many of them the scope cannot read, which is this tool's characteristic silent
+    // miss and the one fact a reader of this report cannot derive from the globs above: an
+    // unreadable file is extracted as empty, so it is reported exactly as a clean one. Named
+    // only when there are some, because the ordinary answer is none and a zero here would
+    // read as a fact worth pausing on. The scan itself warns only when the count is the whole
+    // match set; a report is read by somebody already looking for the miss.
+    const scope = rule.scope ?? 'raw';
+    const unreadable = matched.filter((file) => !scopeSupportsFile(scope, file)).length;
+    lines.push(
+      `- matched: ${String(matched.length)} file(s)` +
+        (unreadable > 0
+          ? `, ${String(unreadable)} of which the "${scope}" scope cannot read and scans as empty`
+          : ''),
+    );
   }
 
   return lines.join('\n');

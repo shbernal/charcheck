@@ -149,6 +149,32 @@ describe('--report-issue', () => {
     expect(result.out).toContain('- matched: not a file rule');
   });
 
+  /**
+   * The count beside it, for the miss a reader of this report cannot derive from the globs:
+   * an unreadable file is extracted as empty, so the rule reports it exactly as a clean one.
+   * The scan warns only when the whole match set is unreadable; here a partial count is worth
+   * printing, because whoever is reading this is already looking for the silent one.
+   */
+  it('says how many matched files the scope cannot read', async () => {
+    await write('acme/notes.txt', `prose ${EM_DASH} here\n`);
+    await write(
+      'charcheck.config.json',
+      JSON.stringify({
+        rules: [{ id: 'mixed', chars: [EM_DASH], scope: 'markdown', include: ['acme/**'] }],
+      }),
+    );
+
+    const result = await cli(['--report-issue']);
+
+    expect(result.out).toContain('- matched: 4 file(s), 1 of which the "markdown" scope cannot');
+  });
+
+  it('says nothing about unreadable files when the scope reads them all', async () => {
+    const result = await cli(['--report-issue']);
+    expect(result.out).toContain('- matched: 2 file(s)');
+    expect(result.out).not.toContain('cannot read');
+  });
+
   it('anonymizes the globs and drops the ids and messages', async () => {
     const result = await cli(['--report-issue']);
 

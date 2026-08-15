@@ -134,3 +134,8 @@ describes the globs, not the commit.
 A rule with `scope: 'strings'` cannot see a comment, `markdown` skips fenced code and
 inline spans, and neither `markup` nor `html` reads `<style>`. The scope is the first thing
 to check once you know the file was opened. See [Scopes](scopes.md).
+
+A file the scope cannot read at all is the sharper version of this: it is extracted as empty,
+so it reports exactly as a clean one. Where a rule's scope can read none of the files it
+matched, a warning on stderr says so. Where it can read only some of them, nothing is said
+during the run, and `charcheck --report-issue` prints the count per rule.
