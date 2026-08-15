@@ -113,22 +113,30 @@ discovered. Where the rules need more than one pass, each pass stages before the
 looks, because the next one reads the index: it would otherwise scan the file as though the
 previous pass had never run.
 
-Note which text is which: the findings are computed from the **index**, and the rewrite lands
-on the **working tree**. For a file whose working copy matches what you staged, which is the
-normal case, those are the same bytes and there is nothing to think about. For a file with
-unstaged edits on top of what you staged, they are not, and a fix computed against one would
-be written into the other. charcheck checks each fix against the text it is about to change
-and skips the ones that no longer match, so such a file is reported and left alone rather
-than rewritten:
+**A file whose working copy differs from what you staged is not fixed at all.** For a file
+whose working copy matches what you staged, which is the normal case, there is nothing here
+to think about. For a file with unstaged edits on top of what you staged, charcheck says so
+and leaves it alone:
 
 ```
-charcheck: cannot fix 1 finding(s) in docs/page.md: the text there has changed since it
-was scanned, so the fix would land on content it was not computed against. Re-run once
-the file and what was scanned agree.
+charcheck: not fixing docs/page.md: it differs from what is staged, and fixing it means
+staging the whole file, which would put your unstaged changes there into the commit.
+Stage them, stash them, or fix the file without --staged.
 ```
 
-Stage the file, or fix it by hand. The finding is still reported and the run still fails, so
-nothing is silently let through.
+The reason is the staging rather than the rewrite. `git add` takes a whole file, so fixing
+one line of a half-staged file commits every other unstaged change in it. That commit looks
+entirely ordinary: nothing is corrupted, nothing is reported, and the work you deliberately
+held back is simply in it.
+
+This is decided **per file**, so the other files in the same commit are still fixed and
+staged. The held file's findings are reported and still fail the run, which is what a
+`--staged` run without `--fix` would have done with them anyway. Stage the edits, stash them,
+or fix that file without `--staged`.
+
+Separately and underneath this, every fix is checked against the text it is about to change
+and skipped if it no longer matches, which covers a file changing mid-run and any caller of
+`applyFixes` that pairs findings with text they were not computed from.
 
 ## The baseline flags
 

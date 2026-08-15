@@ -60,6 +60,22 @@ export async function stagedFiles(cwd: string): Promise<string[]> {
 }
 
 /**
+ * Paths whose working-tree content differs from the index, relative to the repository root.
+ *
+ * `--fix --staged` needs these, and the reason is `git add` rather than the fix itself. That
+ * mode writes the working tree and then stages what it wrote, so on a file the developer
+ * deliberately left half-staged the staging takes the other half with it, and the commit
+ * carries changes nobody chose to commit.
+ *
+ * No `--diff-filter`: any difference counts. A file staged and then deleted from the working
+ * tree differs too, and writing a fix there would put it back.
+ */
+export async function dirtyFiles(cwd: string): Promise<string[]> {
+  const stdout = await git(['diff', '--name-only', '-z'], cwd);
+  return stdout.split('\0').filter((entry) => entry.length > 0);
+}
+
+/**
  * The staged content of a path, read from the index rather than the working tree.
  *
  * This is the whole point of the mode. Reading the working tree would report violations

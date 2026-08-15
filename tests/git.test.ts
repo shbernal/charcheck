@@ -229,7 +229,7 @@ describe('--staged', () => {
     expect(result.err).toContain('re-staged 1 fixed file(s)');
   });
 
-  it('with --fix refuses to splice into a working tree that has moved on', async () => {
+  it('with --fix leaves a file alone when the working tree has moved on', async () => {
     await write('docs/page.md', `a${EM_DASH}b\n`);
     await git('add', 'docs/page.md');
     // Unstaged, longer, and holding no banned character at all.
@@ -238,11 +238,63 @@ describe('--staged', () => {
     const result = await cli(['--staged', '--fix']);
 
     expect(await readFile(path.join(root, 'docs/page.md'), 'utf8')).toBe('hello world here\n');
-    expect(result.err).toContain('has changed since it was scanned');
+    expect(result.err).toContain('differs from what is staged');
     // Nothing was written, so nothing was staged, and the finding in the index survives to
     // be reported rather than being reported as fixed.
     const { stdout } = await exec('git', ['show', ':docs/page.md'], { cwd: root });
     expect(stdout).toBe(`a${EM_DASH}b\n`);
+    expect(result.code).toBe(EXIT_FINDINGS);
+  });
+
+  /**
+   * The defect this refusal exists for, and the one the offset guard does not reach: the
+   * guard checks what is spliced, and the damage here is done by the `git add` afterwards.
+   *
+   * The unstaged edit sits after the finding, so every offset the index produced still points
+   * at the right text and the fix applies cleanly. Staging the file then sweeps the
+   * work-in-progress line into the commit, which is a plausible-looking commit holding work
+   * its author chose to leave out. An edit before the finding shifted the offsets and was
+   * caught, so which half of the file was being edited decided whether this happened.
+   */
+  it('with --fix does not stage the unstaged work in a file it fixes', async () => {
+    await write('docs/page.md', `a${EM_DASH}b\nkeep\n`);
+    await git('add', 'docs/page.md');
+    await write('docs/page.md', `a${EM_DASH}b\nkeep\nwork in progress\n`);
+
+    const result = await cli(['--staged', '--fix']);
+
+    expect(result.err).toContain('not fixing docs/page.md');
+    expect(result.err).not.toContain('re-staged');
+    const { stdout } = await exec('git', ['show', ':docs/page.md'], { cwd: root });
+    expect(stdout).toBe(`a${EM_DASH}b\nkeep\n`);
+    expect(stdout).not.toContain('work in progress');
+    // The working tree keeps both the unstaged line and the finding: refusing to fix is not
+    // licence to rewrite it some other way.
+    expect(await readFile(path.join(root, 'docs/page.md'), 'utf8')).toBe(
+      `a${EM_DASH}b\nkeep\nwork in progress\n`,
+    );
+    expect(result.code).toBe(EXIT_FINDINGS);
+  });
+
+  /**
+   * Held back per file rather than per run. The hazard belongs to one file's `git add`, so a
+   * dirty file must not cost the rest of the commit its fixes.
+   */
+  it('with --fix still fixes the clean files beside a dirty one', async () => {
+    await write('docs/clean.md', `x${EM_DASH}y\n`);
+    await write('docs/dirty.md', `a${EM_DASH}b\n`);
+    await git('add', 'docs/clean.md', 'docs/dirty.md');
+    await write('docs/dirty.md', `a${EM_DASH}b\nunstaged\n`);
+
+    const result = await cli(['--staged', '--fix']);
+
+    expect((await exec('git', ['show', ':docs/clean.md'], { cwd: root })).stdout).toBe('x-y\n');
+    expect((await exec('git', ['show', ':docs/dirty.md'], { cwd: root })).stdout).toBe(
+      `a${EM_DASH}b\n`,
+    );
+    expect(result.err).toContain('not fixing docs/dirty.md');
+    expect(result.err).toContain('re-staged 1 fixed file(s)');
+    // The dirty file's finding is what fails the run, exactly as it would have without --fix.
     expect(result.code).toBe(EXIT_FINDINGS);
   });
 });

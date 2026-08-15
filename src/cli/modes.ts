@@ -13,7 +13,14 @@ import { prepareCommitMessage } from '../commit-msg.js';
 import { textAttributesOf, toScanOptions, virtualRules } from '../config/resolve.js';
 import type { LoadedConfig } from '../config/types.js';
 import { fixToFixpoint, isFixable } from '../fix-files.js';
-import { commentChar, repoRoot, stageFiles, stagedContent, stagedFiles } from '../git.js';
+import {
+  commentChar,
+  dirtyFiles,
+  repoRoot,
+  stageFiles,
+  stagedContent,
+  stagedFiles,
+} from '../git.js';
 import { relativeToRoot, toPosix } from '../paths.js';
 import { readTextFile } from '../read.js';
 import type { ReadOutcome } from '../read.js';
@@ -220,17 +227,37 @@ export async function runStaged(
   let converged = true;
 
   if (options.fix && findings.some(isFixable)) {
+    // A file whose working tree disagrees with the index is not fixed here at all, and the
+    // reason is the staging rather than the write. `git add` takes the whole file, so fixing
+    // one line of a half-staged file commits every other unstaged change in it, silently and
+    // with nothing wrong in the output to notice. Held back per file rather than per run:
+    // the hazard is that file's `git add`, so the rest of the commit can still be fixed.
+    //
+    // What the developer gets for the held file is what a `--staged` run without `--fix`
+    // would have given them anyway, which is the finding reported and the run failed.
+    const dirty = new Set((await dirtyFiles(io.cwd)).map(toConfigPath));
+    const hold = new Set(
+      findings
+        .filter(isFixable)
+        .map((finding) => finding.file)
+        .filter((file) => dirty.has(file)),
+    );
+    for (const file of [...hold].sort()) {
+      warn(
+        `not fixing ${file}: it differs from what is staged, and fixing it means staging the ` +
+          `whole file, which would put your unstaged changes there into the commit. Stage ` +
+          `them, stash them, or fix the file without --staged.`,
+      );
+    }
+
     // The working tree is what gets rewritten; the index then has to be brought along, or
     // the commit would still carry the unfixed content. Staged after every pass rather than
     // once at the end, because the next pass scans the index: an unstaged fix would be read
     // as never having happened, and the pass would compute the same finding again.
-    const outcome = await fixToFixpoint(
-      configRoot,
-      findings,
-      async () => scan(scanOptions),
-      warn,
-      async (files) => stageFiles(root, files.map(toRepoPath)),
-    );
+    const outcome = await fixToFixpoint(configRoot, findings, async () => scan(scanOptions), warn, {
+      hold,
+      afterPass: async (files) => stageFiles(root, files.map(toRepoPath)),
+    });
     findings = outcome.findings;
     fixedCount = outcome.fixed;
     converged = outcome.converged;

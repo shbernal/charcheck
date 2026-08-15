@@ -100,6 +100,24 @@ export interface FixpointOutcome {
   converged: boolean;
 }
 
+export interface FixpointOptions {
+  /**
+   * Files this run must not write, whatever their findings say, named as the findings spell
+   * them. Their findings are still returned and still reported: held back from the fix is
+   * not excused from the check.
+   *
+   * `--staged` passes the files that differ from the index. Writing one means `git add` on a
+   * file the developer left half-staged, which commits the half they held back.
+   */
+  hold?: ReadonlySet<string>;
+  /**
+   * Runs between the write and the re-scan, for a caller whose next scan reads something
+   * other than the files just written: `--staged` scans the index, so the fixes have to be
+   * staged before the next pass looks, or that pass reads them as never having happened.
+   */
+  afterPass?: (files: readonly string[]) => Promise<void>;
+}
+
 /**
  * Rewrite, re-scan, and rewrite again until the tree stops changing.
  *
@@ -114,24 +132,27 @@ export interface FixpointOutcome {
  * Nothing here can settle that, so the loop stops at `MAX_FIX_PASSES` and says so. The
  * alternative, stopping quietly, leaves the tree mid-argument while the report calls it
  * fixed.
- *
- * `afterPass` runs between the write and the re-scan, for a caller whose next scan reads
- * something other than the files just written: `--staged` scans the index, so the fixes have
- * to be staged before the next pass looks, or that pass reads them as never having happened.
  */
 export async function fixToFixpoint(
   root: string,
   findings: readonly Finding[],
   rescan: () => Promise<Finding[]>,
   onWarning: (message: string) => void,
-  afterPass?: (files: readonly string[]) => Promise<void>,
+  options: FixpointOptions = {},
 ): Promise<FixpointOutcome> {
+  const { hold, afterPass } = options;
   const written = new Set<string>();
   let current = [...findings];
   let fixed = 0;
 
+  // What this run is willing to write, as opposed to what it found. A held file's fixable
+  // finding must not keep the loop alive either: nothing intends to write it, so it would
+  // spin to the cap and report an oscillation that is not happening.
+  const writable = (all: readonly Finding[]): Finding[] =>
+    hold === undefined || hold.size === 0 ? [...all] : all.filter((f) => !hold.has(f.file));
+
   for (let pass = 1; ; pass += 1) {
-    const outcome = await fixFiles(root, current, onWarning);
+    const outcome = await fixFiles(root, writable(current), onWarning);
     fixed += outcome.fixed;
     // Nothing was written, so a re-scan could only return the findings already in hand.
     // This is the ordinary exit: the first pass fixes what it can and the second finds
@@ -141,7 +162,7 @@ export async function fixToFixpoint(
     for (const file of outcome.files) written.add(file);
     await afterPass?.(outcome.files);
     current = await rescan();
-    if (!current.some(isFixable)) break;
+    if (!writable(current).some(isFixable)) break;
 
     if (pass === MAX_FIX_PASSES) {
       onWarning(
