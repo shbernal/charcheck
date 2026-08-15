@@ -387,7 +387,7 @@ describe('the baseline', () => {
     const relaxed = await cli(['--baseline']);
     expect(relaxed.code).toBe(EXIT_OK);
     expect(relaxed.err).toContain('1 baseline entry');
-    expect(relaxed.err).toContain('no longer match a finding');
+    expect(relaxed.err).toContain('no longer matches a finding');
 
     const strict = await cli(['--baseline-strict']);
     expect(strict.code).toBe(EXIT_FINDINGS);

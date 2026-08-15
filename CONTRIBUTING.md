@@ -63,6 +63,12 @@ test names. Two consequences:
   the same rules as the docs tree. It is also the file most likely to break the next rule,
   since a skill about suppression has to name the markers.
 
+The same rule reaches further than the banned characters. `looksBinary` treats a file holding
+a null byte as binary and skips it, so a literal one typed into a source file takes that whole
+file out of this project's own scan, silently, while the run still reports itself clean. Where
+such a character is needed, write it as an escape: `src/baseline.ts` needs one as a map key
+separator and says so at the site.
+
 A related trap: charcheck cannot tell a suppression marker in a comment from the same words
 in prose. Writing the file-level marker into a document suppresses that whole document,
 silently. Markers inside fenced Markdown code blocks are ignored for exactly this reason,

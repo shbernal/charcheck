@@ -10,6 +10,10 @@ charcheck [paths...]
   --format <fmt>        pretty (default), json, or sarif.
   --max-warnings <n>    Exit non-zero when warnings exceed n.
   --quiet               List errors only. Warnings are still counted.
+  --baseline            Report only the findings the baseline does not hold.
+  --no-baseline         Ignore the baseline for one run.
+  --baseline-write      Record this run's findings as the baseline.
+  --baseline-strict     Also fail on an entry whose finding is gone.
   --report-issue        Print a bug report about charcheck itself.
   --verbatim            With --report-issue: keep the real glob names.
   --no-color            Disable colour.
@@ -90,6 +94,18 @@ the file and what was scanned agree.
 
 Stage the file, or fix it by hand. The finding is still reported and the run still fails, so
 nothing is silently let through.
+
+## The baseline flags
+
+`--baseline` reports only what the baseline does not already account for, and `--no-baseline`
+ignores the file for one run. `--baseline-write` records the current findings, and
+`--baseline-strict` also fails on an entry whose finding is gone. The whole story, including
+what is recorded and what still fails a run, is on its own page: [Baseline](baseline.md).
+
+Three combinations are refused rather than half honoured. `--baseline-write` with `--staged`
+or a positional path, because a run over part of the tree would record the rest as clean. Any
+of them with `--commit-msg`, because a message is not a file and nothing about it can be
+recorded against one. And `--baseline` together with `--no-baseline`.
 
 ## `--commit-msg`
 

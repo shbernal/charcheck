@@ -34,12 +34,13 @@ export default defineConfig({
 
 ## Top-level fields
 
-| Field            | Type       | Meaning                                                                                                                                                               |
-| ---------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `rules`          | `Rule[]`   | Required, and empty is an error, since nothing would be checked.                                                                                                      |
-| `ignore`         | `string[]` | Globs added to every rule's own `exclude`.                                                                                                                            |
-| `textAttributes` | `string[]` | Attribute names whose value counts as rendered text, for `markup` and `html` alike. Replaces the default allowlist rather than extending it. See [Scopes](scopes.md). |
-| `markup`         | `object`   | The former home of `textAttributes`, kept working because it shipped. Prefer the top-level key; setting both is a config error rather than a silent precedence rule.  |
+| Field            | Type                | Meaning                                                                                                                                                                                            |
+| ---------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `rules`          | `Rule[]`            | Required, and empty is an error, since nothing would be checked.                                                                                                                                   |
+| `ignore`         | `string[]`          | Globs added to every rule's own `exclude`.                                                                                                                                                         |
+| `textAttributes` | `string[]`          | Attribute names whose value counts as rendered text, for `markup` and `html` alike. Replaces the default allowlist rather than extending it. See [Scopes](scopes.md).                              |
+| `markup`         | `object`            | The former home of `textAttributes`, kept working because it shipped. Prefer the top-level key; setting both is a config error rather than a silent precedence rule.                               |
+| `baseline`       | `string \| boolean` | Record the findings the repository already has and fail only on new ones. `true` means `charcheck-baseline.json` beside this file; a string is a path relative to it. See [Baseline](baseline.md). |
 
 `node_modules` and `.git` are always ignored. Dotted directories are only scanned when a
 pattern names them, so a rule meant to cover `.github/` needs a glob that says so.

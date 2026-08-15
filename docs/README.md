@@ -9,6 +9,7 @@ These pages are the full reference.
 | [Scopes](scopes.md)                   | Deciding whether a rule should read a whole file, its strings, its markup, or its prose |
 | [Configuration](configuration.md)     | Writing rules, fixes, or suppression comments                                           |
 | [Command line](cli.md)                | Looking up a flag, an exit code, or what `--staged` actually reads                      |
+| [Baseline](baseline.md)               | Turning charcheck on in a repository that is not at zero                                |
 | [Programmatic API](api.md)            | Calling charcheck from a script or a test instead of the CLI                            |
 | [Presets](presets.md)                 | Reaching for a ready-made character list                                                |
 | [Limitations](limitations.md)         | Something is not being caught and you want to know whether that is expected             |

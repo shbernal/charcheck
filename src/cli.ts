@@ -155,7 +155,7 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
       if (stale > 0) {
         const entries = stale === 1 ? '1 baseline entry' : `${String(stale)} baseline entries`;
         warn(
-          `${entries} in ${where} no longer match a finding` +
+          `${entries} in ${where} no longer ${stale === 1 ? 'matches' : 'match'} a finding` +
             (use.strict
               ? ', and --baseline-strict fails on that.'
               : '. Write the baseline again to drop them.'),

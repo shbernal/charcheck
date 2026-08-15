@@ -162,6 +162,7 @@ You do not need any of this to report something:
 | [Scopes](docs/scopes.md)                   | Deciding what part of a file a rule should read                       |
 | [Configuration](docs/configuration.md)     | Writing rules, fixes, or suppression comments                         |
 | [Command line](docs/cli.md)                | Looking up a flag or an exit code                                     |
+| [Baseline](docs/baseline.md)               | Turning charcheck on in a repository that is not at zero              |
 | [Programmatic API](docs/api.md)            | Calling `scan` from a script or a test                                |
 | [Presets](docs/presets.md)                 | Reaching for a ready-made character list                              |
 | [Limitations](docs/limitations.md)         | Something is not caught and you want to know whether that is expected |

@@ -91,3 +91,6 @@ annotations on the pull request instead, emit SARIF and upload it:
 
 `continue-on-error` is what lets the upload step run even when charcheck found something,
 which is the whole point of producing the report.
+
+If the repository is not already at zero, record what it has once and let CI fail only on
+what is new. That is what [Baseline](baseline.md) is for, and it is three commands.
