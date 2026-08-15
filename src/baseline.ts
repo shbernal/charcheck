@@ -11,7 +11,8 @@
  */
 
 import { createHash } from 'node:crypto';
-import { readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 
 import { stripBom } from './scan.js';
 import type { Finding } from './types.js';
@@ -344,9 +345,23 @@ export function serializeBaseline(entries: readonly BaselineEntry[]): string {
   return `{\n  "version": ${String(BASELINE_VERSION)},\n${body}\n}\n`;
 }
 
+/**
+ * Missing directories are created: a config naming `.charcheck/baseline.json` has said where
+ * the file goes, and refusing to make the directory would be a second thing to do by hand.
+ * Every other failure becomes a `BaselineError`, so the CLI can say what happened rather than
+ * print a stack trace over a report that otherwise looks clean.
+ */
 export async function writeBaseline(
   filepath: string,
   entries: readonly BaselineEntry[],
 ): Promise<void> {
-  await writeFile(filepath, serializeBaseline(entries), 'utf8');
+  try {
+    await mkdir(path.dirname(filepath), { recursive: true });
+    await writeFile(filepath, serializeBaseline(entries), 'utf8');
+  } catch (cause) {
+    const code = (cause as { code?: string }).code;
+    throw new BaselineError(
+      `cannot write the baseline at ${filepath}: ${code ?? (cause as Error).message}`,
+    );
+  }
 }

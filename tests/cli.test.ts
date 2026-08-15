@@ -317,6 +317,110 @@ describe('--fix', () => {
   });
 });
 
+describe('the baseline', () => {
+  const withConfig = async (extra: Record<string, unknown>): Promise<void> => {
+    await write(
+      'charcheck.config.json',
+      JSON.stringify({ ...(JSON.parse(CONFIG) as object), ...extra }),
+    );
+  };
+  const baseline = async (relative = 'charcheck-baseline.json'): Promise<unknown> =>
+    JSON.parse(await readFile(path.join(root, relative), 'utf8'));
+
+  it('records the run, and the next run has nothing new to say', async () => {
+    const written = await cli(['--baseline-write']);
+    expect(written.code).toBe(EXIT_OK);
+    expect(written.err).toContain('recorded 2 findings');
+    expect(await baseline()).toEqual({
+      version: 1,
+      entries: [
+        { file: 'docs/bad.md', ruleId: 'no-em-dash', context: expect.any(String), ordinal: 0 },
+        { file: 'docs/warn.md', ruleId: 'no-zero-width', context: expect.any(String), ordinal: 0 },
+      ],
+    });
+
+    const after = await cli(['--baseline']);
+    expect(after.code).toBe(EXIT_OK);
+    expect(after.out).toContain('No new banned characters found.');
+    expect(after.out).toContain('2 findings accounted for by the baseline');
+  });
+
+  it('still fails on a finding it does not hold', async () => {
+    await cli(['--baseline-write']);
+    await write('docs/fresh.md', `new ${EM_DASH} prose\n`);
+
+    const result = await cli(['--baseline']);
+    expect(result.code).toBe(EXIT_FINDINGS);
+    expect(result.out).toContain('docs/fresh.md');
+    expect(result.out).not.toContain('docs/bad.md');
+    expect(result.out).toContain('2 findings accounted for by the baseline');
+  });
+
+  it('survives the file being re-wrapped around a recorded finding', async () => {
+    await cli(['--baseline-write']);
+    await write('docs/bad.md', `first\nline\nprose\n${EM_DASH}\nhere\n`);
+
+    const result = await cli(['--baseline']);
+    expect(result.code).toBe(EXIT_OK);
+  });
+
+  it('is on when the config says so, and --no-baseline turns it off again', async () => {
+    await cli(['--baseline-write']);
+    await withConfig({ baseline: true });
+
+    expect((await cli([])).code).toBe(EXIT_OK);
+    expect((await cli(['--no-baseline'])).code).toBe(EXIT_FINDINGS);
+  });
+
+  it('takes a path from the config, creating what it needs', async () => {
+    await withConfig({ baseline: 'ci/known.json' });
+
+    expect((await cli(['--baseline-write'])).code).toBe(EXIT_OK);
+    expect(await baseline('ci/known.json')).toMatchObject({ version: 1 });
+    expect((await cli([])).code).toBe(EXIT_OK);
+  });
+
+  it('reports an entry whose finding is gone, and fails on it only under --baseline-strict', async () => {
+    await cli(['--baseline-write']);
+    await write('docs/bad.md', 'first line\nprose - here\n');
+
+    const relaxed = await cli(['--baseline']);
+    expect(relaxed.code).toBe(EXIT_OK);
+    expect(relaxed.err).toContain('1 baseline entry');
+    expect(relaxed.err).toContain('no longer match a finding');
+
+    const strict = await cli(['--baseline-strict']);
+    expect(strict.code).toBe(EXIT_FINDINGS);
+    expect(strict.err).toContain('--baseline-strict');
+  });
+
+  it('subtracts what it accounts for before --max-warnings', async () => {
+    await cli(['--baseline-write']);
+    const result = await cli(['--baseline', '--max-warnings', '0']);
+    expect(result.code).toBe(EXIT_OK);
+  });
+
+  it('says on stderr what a machine-readable report leaves out', async () => {
+    await cli(['--baseline-write']);
+    const result = await cli(['--baseline', '--format', 'json']);
+    expect(JSON.parse(result.out)).toMatchObject({ findings: [] });
+    expect(result.err).toContain('2 findings accounted for by the baseline');
+  });
+
+  it('says when there is no baseline to read', async () => {
+    const result = await cli(['--baseline']);
+    expect(result.code).toBe(EXIT_FINDINGS);
+    expect(result.err).toContain('no baseline at');
+  });
+
+  it('refuses a baseline it cannot read rather than treating it as empty', async () => {
+    await write('charcheck-baseline.json', JSON.stringify({ version: 99, entries: [] }));
+    const result = await cli(['--baseline']);
+    expect(result.code).toBe(EXIT_USAGE);
+    expect(result.err).toContain('version');
+  });
+});
+
 describe('working directory', () => {
   it('gives the same result from a subdirectory', async () => {
     const fromRoot = await cli(['--format', 'json']);

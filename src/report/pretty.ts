@@ -11,6 +11,11 @@ export interface PrettyOptions extends ListOptions {
   sources?: Map<string, string>;
   /** Prefixed to the summary when fixes were written. */
   fixedCount?: number;
+  /**
+   * How many findings the baseline accounted for. They are not listed and do not fail the
+   * run, so the count is the only thing that says the report is smaller than the tree.
+   */
+  baselined?: number;
 }
 
 /** Shared with the CLI, so a count reads the same wherever a person meets it. */
@@ -63,13 +68,23 @@ export function formatPretty(findings: readonly Finding[], options: PrettyOption
   }
 
   if (findings.length === 0) {
-    out.push(c.green('No banned characters found.'));
+    // "new" only when a baseline hid something, since otherwise it would suggest a baseline
+    // is in play when none is.
+    out.push(
+      c.green(
+        options.baselined ? 'No new banned characters found.' : 'No banned characters found.',
+      ),
+    );
   } else {
     const parts = [plural(summary.errors, 'error'), plural(summary.warnings, 'warning')];
     const where = `in ${plural(summary.files, 'file')}`;
     const fixable =
       summary.fixable > 0 ? c.dim(` (${String(summary.fixable)} fixable with --fix)`) : '';
     out.push(`${parts.join(', ')} ${where}${fixable}`);
+  }
+
+  if (options.baselined) {
+    out.push(c.dim(`${plural(options.baselined, 'finding')} accounted for by the baseline.`));
   }
 
   return out.join('\n');

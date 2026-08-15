@@ -8,6 +8,7 @@
 import { realpathSync } from 'node:fs';
 import path from 'node:path';
 
+import type { BaselineScope } from '../baseline.js';
 import { prepareCommitMessage } from '../commit-msg.js';
 import { textAttributesOf, toScanOptions, virtualRules } from '../config/resolve.js';
 import type { LoadedConfig } from '../config/types.js';
@@ -26,6 +27,13 @@ export interface ScanOutcome {
   findings: Finding[];
   sources: Map<string, string>;
   fixedCount: number;
+  /**
+   * Which files this run was allowed to look at, for stale baseline entries. Only a run
+   * that could have seen a file can say its finding is gone. `scan()` does not report the
+   * files it read, and asking it to would mean a callback on the frozen `ScanOptions`; the
+   * restriction each mode passed answers the same question and is already in hand.
+   */
+  scope: BaselineScope;
 }
 
 /**
@@ -72,7 +80,18 @@ export async function runTree(
   const sources = await sourcesFor(findings, (file) =>
     readTextFile(path.join(scanOptions.root, file)),
   );
-  return { findings, sources, fixedCount };
+  // Spelled through `relativeToRoot` exactly as the scan spells its own restriction, or the
+  // two spellings of one path never compare equal and every entry reads as out of scope. A
+  // positional directory names no file and so matches no entry, which under-reports stale
+  // rather than inventing one.
+  const scope: BaselineScope =
+    options.paths.length > 0
+      ? {
+          kind: 'files',
+          files: new Set(options.paths.map((file) => relativeToRoot(scanOptions.root, file))),
+        }
+      : { kind: 'all' };
+  return { findings, sources, fixedCount, scope };
 }
 
 /**
@@ -106,7 +125,13 @@ export async function runCommitMsg(
   });
 
   // The excerpt comes from the original, not the blanked copy.
-  return { findings, sources: new Map([[display, outcome.text]]), fixedCount: 0 };
+  return {
+    findings,
+    sources: new Map([[display, outcome.text]]),
+    fixedCount: 0,
+    // No file in the tree was read, and a message is not baselined in any case.
+    scope: { kind: 'files', files: new Set() },
+  };
 }
 
 /**
@@ -156,7 +181,10 @@ export async function runStaged(
     toPosix(path.relative(root, path.resolve(configRoot, file)));
 
   const staged = await stagedFiles(io.cwd);
-  if (staged.length === 0) return { findings: [], sources: new Map(), fixedCount: 0 };
+  const scope: BaselineScope = { kind: 'files', files: new Set(staged.map(toConfigPath)) };
+  if (staged.length === 0) {
+    return { findings: [], sources: new Map(), fixedCount: 0, scope };
+  }
 
   const scanOptions = {
     ...toScanOptions(loaded, { files: staged.map(toConfigPath) }),
@@ -186,5 +214,5 @@ export async function runStaged(
     }
   }
 
-  return { findings, sources: await sourcesFor(findings, scanOptions.read), fixedCount };
+  return { findings, sources: await sourcesFor(findings, scanOptions.read), fixedCount, scope };
 }

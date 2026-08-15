@@ -4,6 +4,8 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { BaselineError } from './baseline.js';
+import { applyBaseline, baselineUse } from './cli/baseline.js';
 import { HELP, parse } from './cli/options.js';
 import type { CliIo, Options } from './cli/options.js';
 import { runCommitMsg, runStaged, runTree } from './cli/modes.js';
@@ -108,7 +110,53 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
     return EXIT_USAGE;
   }
 
-  const { findings, fixedCount } = outcome;
+  const { fixedCount } = outcome;
+  let findings = outcome.findings;
+  let baselined = 0;
+  let stale = 0;
+  let staleFails = false;
+
+  const use = baselineUse(loaded, options);
+  if (use !== undefined) {
+    if (use.write && skipped.length > 0) {
+      // The write records what the run saw as all there is. A file that could not be read
+      // has no findings, and recording that as zero says known-good in a way no later run
+      // can tell from the real thing.
+      warn(
+        `refusing to write the baseline: ${plural(skipped.length, 'file')} could not be ` +
+          `scanned, and would be recorded as having nothing wrong.`,
+      );
+      return EXIT_USAGE;
+    }
+    try {
+      const report = await applyBaseline(use, outcome);
+      findings = report.reported;
+      baselined = report.accounted;
+      stale = report.stale.length;
+      staleFails = use.strict && stale > 0;
+
+      const where = path.relative(io.cwd, use.filepath) || use.filepath;
+      if (report.written) warn(`recorded ${plural(baselined, 'finding')} in ${where}.`);
+      else if (report.missing) warn(`no baseline at ${where}, so every finding is new.`);
+      if (stale > 0) {
+        const entries = stale === 1 ? '1 baseline entry' : `${String(stale)} baseline entries`;
+        warn(
+          `${entries} in ${where} no longer match a finding` +
+            (use.strict
+              ? ', and --baseline-strict fails on that.'
+              : '. Write the baseline again to drop them.'),
+        );
+      }
+    } catch (cause) {
+      // A baseline that exists and cannot be used is a configuration problem, not a clean
+      // run: degrading to an empty one would report every recorded finding as new.
+      if (cause instanceof BaselineError) {
+        io.err(`charcheck: ${cause.message}`);
+        return EXIT_USAGE;
+      }
+      throw cause;
+    }
+  }
 
   // Every formatter is handed the whole run and narrows the list itself, so what --quiet
   // hides is still counted. A summary that agreed with the listing rather than with the
@@ -125,8 +173,14 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
         sources: outcome.sources,
         fixedCount,
         quiet,
+        baselined,
       }),
     );
+  }
+  if (baselined > 0 && options.format !== 'pretty') {
+    // json and sarif own stdout, so the one line that explains why the list is shorter than
+    // the tree goes to stderr rather than being left unsaid.
+    warn(`${plural(baselined, 'finding')} accounted for by the baseline.`);
   }
 
   const errors = findings.filter((finding) => finding.severity === 'error').length;
@@ -142,6 +196,7 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
     );
     return EXIT_FINDINGS;
   }
+  if (staleFails) return EXIT_FINDINGS;
   if (skipped.length > 0) {
     // Reported after the findings, so the list is the last thing on the screen.
     warn(`${String(skipped.length)} file(s) could not be scanned. This run is not a pass.`);

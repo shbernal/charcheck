@@ -12,7 +12,7 @@
  * under test here is the scan's response rather than the scanner's judgement.
  */
 
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -116,6 +116,21 @@ describe('the cli, over a file no scope can read', () => {
     expect(code).toBe(EXIT_USAGE);
     expect(err.join('\n')).toContain('src/Card.tsx');
     expect(err.join('\n')).toContain('not a pass');
+  });
+
+  it('refuses to record a baseline, which would call the unread file clean', async () => {
+    await write('charcheck.config.json', config('src/**/*.{ts,tsx}'));
+    const err: string[] = [];
+    const code = await run(['--baseline-write'], {
+      cwd: root,
+      out: () => undefined,
+      err: (text) => err.push(text),
+      color: false,
+    });
+
+    expect(code).toBe(EXIT_USAGE);
+    expect(err.join('\n')).toContain('refusing to write the baseline');
+    await expect(readFile(path.join(root, 'charcheck-baseline.json'), 'utf8')).rejects.toThrow();
   });
 
   it('passes when every targeted file could be read', async () => {
