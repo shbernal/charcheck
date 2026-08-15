@@ -77,14 +77,17 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
     throw cause;
   }
 
+  const use = baselineUse(loaded, options);
+
   if (options.reportIssue) {
     // A diagnostic, not a check: it resolves the globs to count what each rule reaches, reads
-    // no file, and exits 0 whatever the tree holds.
+    // none of the files it would scan, and exits 0 whatever the tree holds.
     io.out(
       await formatIssueReport({
         loaded,
         version: await version(),
         verbatim: options.verbatim,
+        ...(use ? { baseline: use.filepath } : {}),
       }),
     );
     return EXIT_OK;
@@ -116,7 +119,6 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
   let stale = 0;
   let staleFails = false;
 
-  const use = baselineUse(loaded, options);
   if (use !== undefined) {
     if (use.write && skipped.length > 0) {
       // The write records what the run saw as all there is. A file that could not be read

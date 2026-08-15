@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 
+import { readBaseline } from '../baseline.js';
 import { fileRules } from '../config/resolve.js';
 import type { LoadedConfig } from '../config/types.js';
 import { DEFAULT_IGNORE, filesForRule } from '../scan-files.js';
@@ -137,6 +138,43 @@ function describeIgnore(
         `${patterns(configured, anonymize)}.`;
 }
 
+/**
+ * Whether a baseline was in play, and how much it held.
+ *
+ * Without this the report is unreadable in exactly the case it is most needed: the matched
+ * counts beside each rule describe the whole tree, while the run being reported subtracted
+ * everything the baseline accounted for, and nothing in between explains the difference. A
+ * silent miss is what this flag is for, and a baseline is the one thing that makes a real
+ * finding disappear on purpose.
+ *
+ * Named by basename like the config file above, and it never throws: a report about a broken
+ * run must not break on the same thing.
+ */
+async function describeBaseline(filepath: string | undefined): Promise<string> {
+  if (filepath === undefined) {
+    return 'No baseline was in use, so nothing was subtracted from what the rules matched.';
+  }
+
+  const name = path.basename(filepath);
+  try {
+    const baseline = await readBaseline(filepath);
+    if (baseline === undefined) {
+      return `A baseline is in use and there is no \`${name}\` yet, so nothing was subtracted.`;
+    }
+    const count = baseline.entries.length;
+    return (
+      `A baseline at \`${name}\` holds ${String(count)} ${count === 1 ? 'entry' : 'entries'}. ` +
+      `Those findings are reported by no run that reads it, so the counts below will not ` +
+      `reconcile with what the run printed.`
+    );
+  } catch (cause) {
+    // The path is spelled out in the message, and this report does not carry real directory
+    // names.
+    const detail = (cause as Error).message.split(filepath).join(name);
+    return `A baseline is in use and could not be read: ${detail}`;
+  }
+}
+
 async function describeRule(
   rule: Rule,
   index: number,
@@ -178,6 +216,8 @@ export interface IssueReportOptions {
   version: string;
   /** Print the real glob names. Never the default: see `anonymize.ts`. */
   verbatim?: boolean;
+  /** The baseline this run would have read, when it would have read one. */
+  baseline?: string;
 }
 
 const ANONYMIZED_NOTE = `Directory and file names in the globs below are placeholders, numbered in order of first
@@ -241,6 +281,7 @@ export async function formatIssueReport(options: IssueReportOptions): Promise<st
 
   // Before the rules, so the placeholders stay numbered in the order they are read.
   const ignoreNote = describeIgnore(loaded.config.ignore ?? [], anonymize);
+  const baselineNote = await describeBaseline(options.baseline);
 
   const resolved = await Promise.all(
     rules.map((rule, index) => describeRule(rule, index, loaded, ignore, anonymize)),
@@ -263,6 +304,7 @@ export async function formatIssueReport(options: IssueReportOptions): Promise<st
       `directory holding that file.`,
     options.verbatim === true ? VERBATIM_NOTE : ANONYMIZED_NOTE,
     ignoreNote,
+    baselineNote,
     ...resolved,
     PLACEHOLDERS,
   ].join('\n\n');

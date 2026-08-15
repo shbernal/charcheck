@@ -52,7 +52,8 @@ Flags banned characters in targeted parts of a repo, driven by one config.
                         summary, and still decide --max-warnings.
   --report-issue        Print a bug report about charcheck itself: the versions
                         in play, and every rule as it resolved, including how
-                        many files each one matched. Reads no file and exits 0.
+                        many files each one matched. Reads none of the files it
+                        would scan, and exits 0.
                         Directory names in the globs are replaced, so nothing of
                         your tree goes into the tracker.
   --verbatim            With --report-issue only: keep the real glob names.

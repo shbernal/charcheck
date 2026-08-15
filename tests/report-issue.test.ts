@@ -235,6 +235,36 @@ describe('--report-issue', () => {
     expect([...result.out.matchAll(/- exclude: none/g)]).toHaveLength(2);
   });
 
+  it('says whether a baseline was in use, without which the counts cannot be reconciled', async () => {
+    const without = await cli(['--report-issue']);
+    expect(without.out).toContain('No baseline was in use');
+
+    await write('charcheck-baseline.json', JSON.stringify({ version: 1, entries: [] }));
+    const empty = await cli(['--report-issue', '--baseline']);
+    expect(empty.out).toContain('holds 0 entries');
+
+    await write(
+      'charcheck-baseline.json',
+      JSON.stringify({
+        version: 1,
+        entries: [{ file: 'acme/two.md', ruleId: 'no-em-dash-in-acme-docs', context: 'ab', o: 0 }],
+      }),
+    );
+    const malformed = await cli(['--report-issue', '--baseline']);
+    expect(malformed.code).toBe(EXIT_OK);
+    expect(malformed.out).toContain('could not be read');
+    expect(malformed.out).not.toContain(root);
+  });
+
+  it('says a configured baseline that does not exist yet is not subtracting anything', async () => {
+    await write(
+      'charcheck.config.json',
+      JSON.stringify({ ...(JSON.parse(CONFIG) as object), baseline: true }),
+    );
+    const result = await cli(['--report-issue']);
+    expect(result.out).toContain('no `charcheck-baseline.json` yet');
+  });
+
   it('names the config by its basename alone', async () => {
     const result = await cli(['--report-issue']);
 
