@@ -26,6 +26,16 @@ export interface CharcheckConfig {
    * precedence rule.
    */
   markup?: MarkupOptions;
+  /**
+   * Record what the repository already has, and fail on the new findings alone. A finding the
+   * baseline accounts for is counted in the summary and kept out of the exit code, which is
+   * what lets a repository that is not at zero turn this tool on in CI today.
+   *
+   * `true` means `charcheck-baseline.json` beside this config file. A string is a path, taken
+   * relative to the config file's own directory the way every glob is. `--baseline` on the
+   * command line wins over either.
+   */
+  baseline?: string | boolean;
 }
 
 export interface LoadedConfig {

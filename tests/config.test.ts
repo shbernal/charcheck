@@ -143,6 +143,14 @@ describe('config validation', () => {
     expect(validateConfig({ ...valid, textAttributes: ['heading'] })).toBeTruthy();
   });
 
+  it('validates the baseline key', () => {
+    expect(problemsOf(() => validateConfig({ ...valid, baseline: 42 }))[0]).toContain('"baseline"');
+    expect(problemsOf(() => validateConfig({ ...valid, baseline: '   ' }))[0]).toContain('empty');
+    expect(validateConfig({ ...valid, baseline: true }).baseline).toBe(true);
+    expect(validateConfig({ ...valid, baseline: false }).baseline).toBe(false);
+    expect(validateConfig({ ...valid, baseline: 'ci/known.json' }).baseline).toBe('ci/known.json');
+  });
+
   it('refuses both spellings of the attribute allowlist at once', () => {
     const problems = problemsOf(() =>
       validateConfig({ ...valid, textAttributes: ['a'], markup: { textAttributes: ['b'] } }),

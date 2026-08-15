@@ -207,6 +207,15 @@ export function validateConfig(value: unknown, source?: string): CharcheckConfig
     stringArray(value['textAttributes'], '"textAttributes"', problems);
   }
 
+  const baseline = value['baseline'];
+  if (baseline !== undefined && typeof baseline !== 'string' && typeof baseline !== 'boolean') {
+    problems.push('"baseline" must be a path, or true for the default file name.');
+  } else if (typeof baseline === 'string' && baseline.trim().length === 0) {
+    // An empty path would resolve to the config's own directory, and a directory is not a
+    // baseline. Someone reaching for "no baseline" wants false, or the key gone.
+    problems.push('"baseline" is an empty path. Use true for the default file name, or false.');
+  }
+
   const markup = value['markup'];
   if (markup !== undefined) {
     if (!isRecord(markup)) problems.push('"markup" must be an object.');
