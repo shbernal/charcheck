@@ -429,6 +429,16 @@ describe('the baseline', () => {
     expect(result.code).toBe(EXIT_OK);
   });
 
+  // The same bug as the staged one, and the one nobody writes the test for: a run given a
+  // path has not looked at the rest of the tree, so it knows nothing about its entries.
+  it('says nothing about the entries of the files a positional run did not reach', async () => {
+    await cli(['--baseline-write']);
+
+    const result = await cli(['docs/clean.md', '--baseline-strict']);
+    expect(result.code).toBe(EXIT_OK);
+    expect(result.err).not.toContain('no longer match');
+  });
+
   it('says on stderr what a machine-readable report leaves out', async () => {
     await cli(['--baseline-write']);
     const result = await cli(['--baseline', '--format', 'json']);

@@ -133,6 +133,21 @@ describe('--staged', () => {
     expect(result.out).toContain('a file with spaces');
   });
 
+  // Every entry outside the staged set would otherwise read as fixed, so a hook on a
+  // repository with a baseline would report the whole tree as stale on every commit, and
+  // under --baseline-strict would refuse every commit.
+  it('says nothing about the baseline entries of the files it did not look at', async () => {
+    await write('docs/one.md', `first ${EM_DASH} problem\n`);
+    await write('docs/two.md', `second ${EM_DASH} problem\n`);
+    expect((await cli(['--baseline-write'])).code).toBe(EXIT_OK);
+
+    await git('add', 'docs/one.md');
+    const result = await cli(['--staged', '--baseline-strict']);
+
+    expect(result.code).toBe(EXIT_OK);
+    expect(result.err).not.toContain('no longer match');
+  });
+
   it('runs from a subdirectory of the repository', async () => {
     await write('docs/page.md', `staged ${EM_DASH} problem\n`);
     await git('add', 'docs/page.md');
