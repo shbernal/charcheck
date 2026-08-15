@@ -133,6 +133,10 @@ Not closed forever, but reopening one needs a reason beyond preference:
 - **A commit message is masked, not trimmed.** Ignorable text becomes spaces so the file
   keeps its length and positions still point at the line the author typed.
 - **Core ships no vocabulary opinions.** This tool is about characters.
+- **The CLI has no subcommands, and a flag never takes an optional argument.** A path written
+  after `--baseline` cannot be told apart from a path to scan, so the baseline's path lives
+  in the config and the flag is a boolean. Adding the first subcommand is a bigger decision
+  than whatever feature is asking for it, and `parseArgs` cannot express an optional value.
 - **`JsxUnsupportedError` stays exported.** It looks internal, since `scan` catches it and
   no CLI code names it, but `scan-files.ts` hands the instance to `ScanOptions.onSkipped`.
   An API consumer therefore receives one and can legitimately branch on it with
