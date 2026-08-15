@@ -12,7 +12,7 @@ import type { BaselineScope } from '../baseline.js';
 import { prepareCommitMessage } from '../commit-msg.js';
 import { textAttributesOf, toScanOptions, virtualRules } from '../config/resolve.js';
 import type { LoadedConfig } from '../config/types.js';
-import { fixFiles } from '../fix-files.js';
+import { fixToFixpoint, isFixable } from '../fix-files.js';
 import { commentChar, repoRoot, stageFiles, stagedContent, stagedFiles } from '../git.js';
 import { relativeToRoot, toPosix } from '../paths.js';
 import { readTextFile } from '../read.js';
@@ -27,6 +27,13 @@ export interface ScanOutcome {
   findings: Finding[];
   sources: Map<string, string>;
   fixedCount: number;
+  /**
+   * False when `--fix` ran out of passes with fixable findings still standing, which means
+   * two rules are rewriting each other and what is on disk is neither one's idea of right.
+   * The run cannot be called clean whatever the remaining findings say, so this is carried
+   * up rather than left to the exit code the findings happen to produce.
+   */
+  converged: boolean;
   /**
    * Which files this run was allowed to look at, for stale baseline entries. Only a run
    * that could have seen a file can say its finding is gone. `scan()` does not report the
@@ -70,11 +77,18 @@ export async function runTree(
 
   let findings = await scan(scanOptions);
   let fixedCount = 0;
+  let converged = true;
 
-  if (options.fix && findings.some((finding) => finding.fixable)) {
-    const outcome = await fixFiles(scanOptions.root, findings, warn);
+  if (options.fix && findings.some(isFixable)) {
+    const outcome = await fixToFixpoint(
+      scanOptions.root,
+      findings,
+      async () => scan(scanOptions),
+      warn,
+    );
+    findings = outcome.findings;
     fixedCount = outcome.fixed;
-    if (outcome.files.length > 0) findings = await scan(scanOptions);
+    converged = outcome.converged;
   }
 
   const sources = await sourcesFor(findings, (file) =>
@@ -91,7 +105,7 @@ export async function runTree(
           files: new Set(options.paths.map((file) => relativeToRoot(scanOptions.root, file))),
         }
       : { kind: 'all' };
-  return { findings, sources, fixedCount, scope };
+  return { findings, sources, fixedCount, converged, scope };
 }
 
 /**
@@ -129,6 +143,8 @@ export async function runCommitMsg(
     findings,
     sources: new Map([[display, outcome.text]]),
     fixedCount: 0,
+    // `--fix` is refused with `--commit-msg`, so nothing here can fail to settle.
+    converged: true,
     // No file in the tree was read, and a message is not baselined in any case.
     scope: { kind: 'files', files: new Set() },
   };
@@ -183,7 +199,7 @@ export async function runStaged(
   const staged = await stagedFiles(io.cwd);
   const scope: BaselineScope = { kind: 'files', files: new Set(staged.map(toConfigPath)) };
   if (staged.length === 0) {
-    return { findings: [], sources: new Map(), fixedCount: 0, scope };
+    return { findings: [], sources: new Map(), fixedCount: 0, converged: true, scope };
   }
 
   const scanOptions = {
@@ -201,18 +217,35 @@ export async function runStaged(
 
   let findings = await scan(scanOptions);
   let fixedCount = 0;
+  let converged = true;
 
-  if (options.fix && findings.some((finding) => finding.fixable)) {
+  if (options.fix && findings.some(isFixable)) {
     // The working tree is what gets rewritten; the index then has to be brought along, or
-    // the commit would still carry the unfixed content.
-    const outcome = await fixFiles(configRoot, findings, warn);
+    // the commit would still carry the unfixed content. Staged after every pass rather than
+    // once at the end, because the next pass scans the index: an unstaged fix would be read
+    // as never having happened, and the pass would compute the same finding again.
+    const outcome = await fixToFixpoint(
+      configRoot,
+      findings,
+      async () => scan(scanOptions),
+      warn,
+      async (files) => stageFiles(root, files.map(toRepoPath)),
+    );
+    findings = outcome.findings;
     fixedCount = outcome.fixed;
+    converged = outcome.converged;
     if (outcome.files.length > 0) {
-      await stageFiles(root, outcome.files.map(toRepoPath));
+      // Once, naming the files rather than the writes: a file rewritten by three passes was
+      // staged three times and is still one file in the commit.
       io.err(`charcheck: re-staged ${String(outcome.files.length)} fixed file(s).`);
-      findings = await scan(scanOptions);
     }
   }
 
-  return { findings, sources: await sourcesFor(findings, scanOptions.read), fixedCount, scope };
+  return {
+    findings,
+    sources: await sourcesFor(findings, scanOptions.read),
+    fixedCount,
+    converged,
+    scope,
+  };
 }

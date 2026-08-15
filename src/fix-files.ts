@@ -13,6 +13,17 @@ export interface FixOutcome {
 }
 
 /**
+ * What `applyFixes` will actually write.
+ *
+ * `fixable` is a claim about the rule and the replacement is the thing itself. They agree
+ * for every finding `scan` produces, and a caller assembling findings by hand is the reason
+ * both are checked.
+ */
+export function isFixable(finding: Finding): boolean {
+  return finding.fixable && finding.replacement !== undefined;
+}
+
+/**
  * Write the fixable findings back to disk.
  *
  * Line endings and a byte order mark survive, because `applyFixes` rewrites only the
@@ -29,9 +40,7 @@ export async function fixFiles(
   for (const [file, forFile] of groupByFile(findings)) {
     // The same filter `applyFixes` applies, so the count below can be exact rather than an
     // estimate made from a wider set.
-    const fixable = forFile.filter(
-      (finding) => finding.fixable && finding.replacement !== undefined,
-    );
+    const fixable = forFile.filter(isFixable);
     if (fixable.length === 0) continue;
 
     const absolute = path.join(root, file);
@@ -69,4 +78,81 @@ export async function fixFiles(
   }
 
   return { fixed, files };
+}
+
+/**
+ * How many times a run rewrites and re-scans before it gives up.
+ *
+ * Ten is ESLint's number and is chosen the same way: high enough that no honest chain of
+ * rules reaches it, low enough that a pair of rules arguing costs a moment rather than a
+ * hung hook.
+ */
+export const MAX_FIX_PASSES = 10;
+
+export interface FixpointOutcome {
+  /** The findings as the last pass left them, ready to report. */
+  findings: Finding[];
+  /** Findings actually rewritten, totalled over every pass. */
+  fixed: number;
+  /** Every file written, each named once, in the order it was first written. */
+  files: string[];
+  /** False when the passes ran out with fixable findings still standing. */
+  converged: boolean;
+}
+
+/**
+ * Rewrite, re-scan, and rewrite again until the tree stops changing.
+ *
+ * One pass is not enough, and the reason is that a replacement is arbitrary text which may
+ * itself contain what another rule bans. A house style rewriting an em dash to an en dash,
+ * next to a rule that bans the en dash, needs two passes to reach the answer both rules
+ * agree on. `applyFixes` also skips a fix whose span another rule's replacement already
+ * covered, and the re-scan is what gives that one its next chance, judged against the text
+ * as it now reads rather than the text it was computed against.
+ *
+ * Two rules can equally well disagree forever, each rewriting what the other just wrote.
+ * Nothing here can settle that, so the loop stops at `MAX_FIX_PASSES` and says so. The
+ * alternative, stopping quietly, leaves the tree mid-argument while the report calls it
+ * fixed.
+ *
+ * `afterPass` runs between the write and the re-scan, for a caller whose next scan reads
+ * something other than the files just written: `--staged` scans the index, so the fixes have
+ * to be staged before the next pass looks, or that pass reads them as never having happened.
+ */
+export async function fixToFixpoint(
+  root: string,
+  findings: readonly Finding[],
+  rescan: () => Promise<Finding[]>,
+  onWarning: (message: string) => void,
+  afterPass?: (files: readonly string[]) => Promise<void>,
+): Promise<FixpointOutcome> {
+  const written = new Set<string>();
+  let current = [...findings];
+  let fixed = 0;
+
+  for (let pass = 1; ; pass += 1) {
+    const outcome = await fixFiles(root, current, onWarning);
+    fixed += outcome.fixed;
+    // Nothing was written, so a re-scan could only return the findings already in hand.
+    // This is the ordinary exit: the first pass fixes what it can and the second finds
+    // nothing left to write.
+    if (outcome.files.length === 0) break;
+
+    for (const file of outcome.files) written.add(file);
+    await afterPass?.(outcome.files);
+    current = await rescan();
+    if (!current.some(isFixable)) break;
+
+    if (pass === MAX_FIX_PASSES) {
+      onWarning(
+        `stopped after ${String(MAX_FIX_PASSES)} fix passes with the text still changing, ` +
+          `so two rules are rewriting each other's replacement. The files hold whatever the ` +
+          `last pass wrote, which is one side of that argument rather than a settled result. ` +
+          `This run is not a pass.`,
+      );
+      return { findings: current, fixed, files: [...written], converged: false };
+    }
+  }
+
+  return { findings: current, fixed, files: [...written], converged: true };
 }

@@ -6,7 +6,7 @@ import { promisify } from 'node:util';
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { EM_DASH } from '../src/chars.js';
+import { EM_DASH, EN_DASH } from '../src/chars.js';
 import { prepareCommitMessage } from '../src/commit-msg.js';
 import { EXIT_FINDINGS, EXIT_OK, EXIT_USAGE, run } from '../src/cli.js';
 import type { CliIo } from '../src/cli.js';
@@ -199,6 +199,36 @@ describe('--staged', () => {
    * anyway: an index holding a dash at offset 1, against a working tree holding unrelated
    * text, turned `hello world here` into `h-llo world here` and staged it, exit code 0.
    */
+  /**
+   * A chain of rules needs more than one pass, and each pass reads the index. So the fixes
+   * have to be staged between the passes rather than once at the end: a pass looking at an
+   * index that does not yet hold the previous pass's work computes the same finding again
+   * and writes it again, and the run stops only when it runs out of passes.
+   */
+  it('with --fix stages between the passes a chain of rules needs', async () => {
+    await write(
+      'charcheck.config.json',
+      JSON.stringify({
+        rules: [
+          { id: 'em-to-en', chars: [EM_DASH], include: ['docs/**/*.md'], fix: EN_DASH },
+          { id: 'no-en-dash', chars: [EN_DASH], include: ['docs/**/*.md'], fix: '-' },
+        ],
+      }),
+    );
+    await write('docs/page.md', `staged ${EM_DASH} problem\n`);
+    await git('add', 'docs/page.md');
+
+    const result = await cli(['--staged', '--fix']);
+    expect(result.code).toBe(EXIT_OK);
+    expect(await readFile(path.join(root, 'docs/page.md'), 'utf8')).toBe('staged - problem\n');
+    const { stdout } = await exec('git', ['show', ':docs/page.md'], { cwd: root });
+    expect(stdout).toBe('staged - problem\n');
+    // Said once, and about the file rather than the writes: two passes touched it and the
+    // commit still carries one file.
+    expect(result.err.match(/re-staged/g)).toHaveLength(1);
+    expect(result.err).toContain('re-staged 1 fixed file(s)');
+  });
+
   it('with --fix refuses to splice into a working tree that has moved on', async () => {
     await write('docs/page.md', `a${EM_DASH}b\n`);
     await git('add', 'docs/page.md');

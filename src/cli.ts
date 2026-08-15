@@ -215,6 +215,12 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
     return EXIT_FINDINGS;
   }
   if (staleFails) return EXIT_FINDINGS;
+  // The fixes never settled, so the tree holds one arbitrary side of an argument between two
+  // rules. Said at the point it happened rather than here, since the findings above may
+  // already have decided the exit code; what this adds is that a run whose remaining
+  // findings are warnings, or none, still cannot be reported as clean. It is a config
+  // problem in the same sense an unreadable file is: the tool did not finish its job.
+  if (!outcome.converged) return EXIT_USAGE;
   if (skipped.size > 0) {
     // Reported after the findings, so the list is the last thing on the screen.
     warn(`${String(skipped.size)} file(s) could not be scanned. This run is not a pass.`);

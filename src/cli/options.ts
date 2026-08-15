@@ -20,7 +20,10 @@ Flags banned characters in targeted parts of a repo, driven by one config.
                         working directory.
   --fix                 Rewrite the findings whose rule declares a fix, then
                         report what is left. A fix is a guess about prose, so
-                        read the diff.
+                        read the diff. Rewriting and re-scanning repeat until
+                        the tree stops changing, since a replacement can hold
+                        what another rule bans; two rules rewriting each other
+                        stop the run rather than looping.
   --staged              Check the staged content of the staged files, read from
                         the index rather than the working tree, so unstaged
                         edits are never reported. With --fix, the working tree
@@ -61,9 +64,9 @@ Flags banned characters in targeted parts of a repo, driven by one config.
                         already honoured.
   --version, --help
 
-Exit codes: 0 clean, 1 findings, 2 a usage or config error, or a file a rule
-targets that no scope could read. A file that was not looked at is reported on
-stderr and never counted as a pass.
+Exit codes: 0 clean, 1 findings, 2 a usage or config error, a file a rule
+targets that no scope could read, or fixes that never settled. A file that was
+not looked at is reported on stderr and never counted as a pass.
 
 Globs in a config resolve against the config file's own directory, so running
 from a subdirectory gives identical results.`;

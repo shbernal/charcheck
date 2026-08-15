@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { BYTE_ORDER_MARK, EM_DASH, ZERO_WIDTH_SPACE } from '../src/chars.js';
+import { BYTE_ORDER_MARK, EM_DASH, EN_DASH, ZERO_WIDTH_SPACE } from '../src/chars.js';
 import { EXIT_FINDINGS, EXIT_OK, EXIT_USAGE, run } from '../src/cli.js';
 import type { CliIo } from '../src/cli.js';
 
@@ -314,6 +314,65 @@ describe('--fix', () => {
     const once = await readFile(path.join(root, 'docs/bad.md'), 'utf8');
     await cli(['--fix']);
     expect(await readFile(path.join(root, 'docs/bad.md'), 'utf8')).toBe(once);
+  });
+});
+
+/**
+ * A replacement is arbitrary text, so it can hold exactly what another rule bans. One pass
+ * therefore settles nothing, and the run keeps fixing and re-scanning until the tree stops
+ * changing, or until it is clear that it never will.
+ */
+describe('--fix over more than one pass', () => {
+  const chain = async (first: string, second: string, severity?: string): Promise<void> => {
+    const rule = (id: string, char: string, fix: string): Record<string, unknown> => ({
+      id,
+      chars: [char],
+      include: ['docs/**/*.md'],
+      fix,
+      ...(severity !== undefined ? { severity } : {}),
+    });
+    await write(
+      'charcheck.config.json',
+      JSON.stringify({
+        rules: [rule('first', EM_DASH, first), rule('second', EN_DASH, second)],
+      }),
+    );
+    await write('docs/chain.md', `prose ${EM_DASH} here\n`);
+  };
+
+  it('keeps going while a fix leaves what the next rule bans', async () => {
+    // A house style: em dashes become en dashes, and en dashes are banned outright. One
+    // pass left the en dash on disk and reported it, so the fix had to be asked for twice.
+    await chain(EN_DASH, '-');
+
+    const result = await cli(['--fix', 'docs/chain.md']);
+    expect(await readFile(path.join(root, 'docs/chain.md'), 'utf8')).toBe('prose - here\n');
+    // Both rewrites are counted. Two findings really were written, over one character.
+    expect(result.out).toContain('Fixed 2 findings');
+    expect(result.code).toBe(EXIT_OK);
+  });
+
+  it('stops and fails when two rules rewrite each other forever', async () => {
+    await chain(EN_DASH, EM_DASH, 'warn');
+
+    const result = await cli(['--fix', 'docs/chain.md']);
+    expect(result.err).toContain('stopped after 10 fix passes');
+    // Warnings only, and no --max-warnings, so nothing else in this run would have failed
+    // it. Stopping quietly meant exiting 0 over a file rewritten ten times and left holding
+    // one side of an argument between two rules.
+    expect(result.code).toBe(EXIT_USAGE);
+    const text = await readFile(path.join(root, 'docs/chain.md'), 'utf8');
+    expect([`prose ${EM_DASH} here\n`, `prose ${EN_DASH} here\n`]).toContain(text);
+  });
+
+  it('still reports the findings as findings when they carry an error', async () => {
+    // The exit code stays the findings' to decide, as it is for a file that could not be
+    // read. Both are non-zero, and what names the cause is the line on stderr.
+    await chain(EN_DASH, EM_DASH);
+
+    const result = await cli(['--fix', 'docs/chain.md']);
+    expect(result.err).toContain('rewriting each other');
+    expect(result.code).toBe(EXIT_FINDINGS);
   });
 });
 
