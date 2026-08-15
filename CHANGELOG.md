@@ -9,6 +9,22 @@ against every entry that does. A patch release does not.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`--fix --staged` no longer commits the unstaged work in a file it fixes.** The mode
+  rewrites the working tree and then stages what it wrote, and `git add` takes a whole file:
+  fixing one line of a half-staged file swept every other unstaged change in it into the
+  commit. Nothing was corrupted and nothing was reported, so the result was an
+  ordinary-looking commit holding work its author had deliberately left out, from a run that
+  exited 0. A file whose working copy differs from the index is now left alone, named on
+  stderr, and its findings reported and failed as they would have been without `--fix`.
+
+  This is decided per file, so the rest of the commit is still fixed and staged. It is also
+  the case the 0.2.4 offset guard could not reach, that guard being about what gets spliced
+  and this being about what gets staged afterwards. Which half of the file was being edited
+  decided which of the two applied: an unstaged edit before the finding moved the offsets and
+  was caught, while one after it left them valid, so the fix landed and took the edit with it.
+
 ### Added
 
 - **A baseline file, so a repository that is not at zero can turn charcheck on in CI.**
@@ -35,6 +51,20 @@ against every entry that does. A patch release does not.
   the text now reads. `--report-issue` names whether a baseline was in use and how many
   entries it held, without which the matched counts in that report cannot be reconciled with
   what the run printed.
+
+- **A warning for a rule whose scope can read none of the files it matched.** Such a file is
+  extracted as empty and reported exactly as a clean one, so the rule checked nothing while
+  the run exited 0. Config load already rejects an include pattern naming an extension its
+  scope cannot read, which is the half decidable from the pattern alone; a directory glob
+  states no intent about extensions and is passed over there, and this catches the case where
+  it turns out to have reached nothing readable. It never fires when the scope can read even
+  one matched file, since `docs/**` under `markdown` beside one `.png` is what people mean.
+  Counted before the `--staged` file restriction, like the existing warning for a rule that
+  matched nothing, and it does not fail the run.
+
+- `--report-issue` prints how many of each rule's matched files its scope cannot read,
+  whenever there are any. That is the partial case the warning above stays quiet about, and
+  it is the fact a pasted config cannot show.
 
 ### Changed
 
