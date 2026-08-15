@@ -6,6 +6,7 @@ import { relativeToRoot } from './paths.js';
 import { readTextFile } from './read.js';
 import type { ReadOutcome } from './read.js';
 import { scanText } from './scan.js';
+import { scopeSupportsFile } from './scope/index.js';
 import { JsxUnsupportedError } from './scope/missing-peer.js';
 import type { ExtractorOptions, Finding, Rule } from './types.js';
 
@@ -100,6 +101,29 @@ async function planScan(options: ScanOptions): Promise<Map<string, Rule[]>> {
       options.onWarning?.(
         `rule "${rule.id}" matched no files: ${rule.include.join(', ')}. Check the globs; ` +
           `a dotted directory is only entered when a pattern names it.`,
+      );
+    }
+
+    // The same silent failure as a rule that reaches nothing, arrived at one step later: the
+    // globs found files and the scope cannot read a single one of them, so every one is
+    // extracted as empty and the run reports clean over a set it never read.
+    //
+    // Config load rejects a pattern that names an unreadable extension outright, which is the
+    // decidable half. A directory glob states no intent about extensions and is left alone
+    // there, and is left alone here too unless it turns out to have matched nothing readable:
+    // `docs/**` under `markdown` beside one `.png` is what people mean, and warning about it
+    // would make the check unusable. None readable is not a ratio to judge, it is the whole
+    // rule doing nothing.
+    //
+    // Counted before the `files` restriction, exactly as the warning above is, or every
+    // `--staged` run whose commit happened to touch no readable file would say this.
+    const scope = rule.scope ?? 'raw';
+    if (files.length > 0 && files.every((file) => !scopeSupportsFile(scope, file))) {
+      options.onWarning?.(
+        `rule "${rule.id}" uses scope "${scope}", which can read none of the ` +
+          `${String(files.length)} file(s) it matched: ${rule.include.join(', ')}. Such a file ` +
+          `is scanned as empty and reported as clean, so this rule checked nothing. Give it a ` +
+          `scope that reads these files, or point it at files this scope can read.`,
       );
     }
 

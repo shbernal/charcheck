@@ -43,6 +43,26 @@ is left alone. It may still match a file the scope cannot read, and that file is
 scanned as empty, so a scope with a restricted extension list is worth pairing with a
 pattern that names one.
 
+An extension names an intent and a directory does not, which is the whole of why the line
+falls there. `src/**/*.{ts,md}` under `markdown` asks for the `.ts` files and does not get
+them. `docs/**` under `markdown` beside one `.png` asks for the documents, and rejecting it
+would reject the most ordinary glob anyone writes.
+
+Once the globs have run, one case becomes certain again and is warned about: a rule whose
+scope can read **none** of the files it matched checked nothing at all, whatever its
+patterns looked like.
+
+```
+charcheck: rule "prose" uses scope "markdown", which can read none of the 2 file(s) it
+matched: src/**. Such a file is scanned as empty and reported as clean, so this rule
+checked nothing. Give it a scope that reads these files, or point it at files this scope
+can read.
+```
+
+It does not fail the run, and it never fires when the scope can read even one matched file.
+For that partial case, `--report-issue` prints how many of each rule's matched files its
+scope cannot read, which is where to look when a rule is finding less than you expect.
+
 ## A match has to fit inside one region
 
 Every scope except `raw` hands the rules a set of regions rather than the whole file, and a

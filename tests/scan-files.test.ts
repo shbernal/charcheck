@@ -160,6 +160,58 @@ describe('a rule whose globs match nothing', () => {
   });
 });
 
+/**
+ * The same silent failure one step later: the globs found files, and the scope reads none of
+ * them, so each is extracted as empty and the rule reports clean over a set it never read.
+ *
+ * Config load catches the decidable half, a pattern naming an extension its scope cannot
+ * read. A directory glob states no intent about extensions and is passed over there, so this
+ * is the only place the case can be caught, and only when it is certain.
+ */
+describe('a rule whose scope can read nothing it matched', () => {
+  const collect = async (rules: Parameters<typeof scan>[0]['rules']): Promise<string[]> => {
+    const warnings: string[] = [];
+    await scan({ root, rules, onWarning: (message) => warnings.push(message) });
+    return warnings;
+  };
+
+  it('is warned about, naming the scope and the count', async () => {
+    const warnings = await collect([
+      rule({ id: 'prose', include: ['src/**/*.ts'], scope: 'markdown' }),
+    ]);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain('"prose"');
+    expect(warnings[0]).toContain('"markdown"');
+    expect(warnings[0]).toContain('reported as clean');
+  });
+
+  // The ordinary directory glob, which is what makes this worth warning about only when the
+  // whole match set is unreadable. `docs/**` under `markdown` beside one `.png` is what
+  // people mean, and a warning there would fire on most real configs.
+  it('stays quiet when the scope can read even one of them', async () => {
+    await write('docs/diagram.png', 'not really an image\n');
+    expect(await collect([rule({ id: 'docs', include: ['docs/**'], scope: 'markdown' })])).toEqual(
+      [],
+    );
+  });
+
+  it('stays quiet for raw, which has no extension it cannot read', async () => {
+    expect(await collect([rule({ id: 'any', include: ['src/**/*.ts'], scope: 'raw' })])).toEqual(
+      [],
+    );
+  });
+
+  // A rule that matched nothing at all is the warning above, and saying both would describe
+  // one problem twice.
+  it('leaves a rule that matched no files to the other warning', async () => {
+    const warnings = await collect([
+      rule({ id: 'none', include: ['nowhere/**/*.ts'], scope: 'markdown' }),
+    ]);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain('matched no files');
+  });
+});
+
 describe('path normalization', () => {
   it('converts separators and strips a leading dot slash', () => {
     expect(toPosix('a\\b\\c.ts')).toBe('a/b/c.ts');
