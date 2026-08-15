@@ -74,6 +74,23 @@ With `--fix` it rewrites the working tree and then stages exactly the files it c
 the commit carries the fix. That is a real change to your index, stated here rather than
 discovered.
 
+Note which text is which: the findings are computed from the **index**, and the rewrite lands
+on the **working tree**. For a file whose working copy matches what you staged, which is the
+normal case, those are the same bytes and there is nothing to think about. For a file with
+unstaged edits on top of what you staged, they are not, and a fix computed against one would
+be written into the other. charcheck checks each fix against the text it is about to change
+and skips the ones that no longer match, so such a file is reported and left alone rather
+than rewritten:
+
+```
+charcheck: cannot fix 1 finding(s) in docs/page.md: the text there has changed since it
+was scanned, so the fix would land on content it was not computed against. Re-run once
+the file and what was scanned agree.
+```
+
+Stage the file, or fix it by hand. The finding is still reported and the run still fails, so
+nothing is silently let through.
+
 ## `--commit-msg`
 
 Git passes the message file as `$1`. Comment lines are ignored, as is everything below the

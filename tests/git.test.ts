@@ -177,6 +177,29 @@ describe('--staged', () => {
     expect(stdout).toBe('staged - problem\n');
     expect((await cli(['--staged'])).code).toBe(EXIT_OK);
   });
+
+  /**
+   * The findings come from the index and the write goes to the working tree, so where the
+   * two have diverged an offset points at whatever now sits there. This used to splice
+   * anyway: an index holding a dash at offset 1, against a working tree holding unrelated
+   * text, turned `hello world here` into `h-llo world here` and staged it, exit code 0.
+   */
+  it('with --fix refuses to splice into a working tree that has moved on', async () => {
+    await write('docs/page.md', `a${EM_DASH}b\n`);
+    await git('add', 'docs/page.md');
+    // Unstaged, longer, and holding no banned character at all.
+    await write('docs/page.md', 'hello world here\n');
+
+    const result = await cli(['--staged', '--fix']);
+
+    expect(await readFile(path.join(root, 'docs/page.md'), 'utf8')).toBe('hello world here\n');
+    expect(result.err).toContain('has changed since it was scanned');
+    // Nothing was written, so nothing was staged, and the finding in the index survives to
+    // be reported rather than being reported as fixed.
+    const { stdout } = await exec('git', ['show', ':docs/page.md'], { cwd: root });
+    expect(stdout).toBe(`a${EM_DASH}b\n`);
+    expect(result.code).toBe(EXIT_FINDINGS);
+  });
 });
 
 describe('--commit-msg', () => {

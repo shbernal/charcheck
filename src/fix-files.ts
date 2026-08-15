@@ -27,7 +27,11 @@ export async function fixFiles(
   let fixed = 0;
 
   for (const [file, forFile] of groupByFile(findings)) {
-    const fixable = forFile.filter((finding) => finding.fixable);
+    // The same filter `applyFixes` applies, so the count below can be exact rather than an
+    // estimate made from a wider set.
+    const fixable = forFile.filter(
+      (finding) => finding.fixable && finding.replacement !== undefined,
+    );
     if (fixable.length === 0) continue;
 
     const absolute = path.join(root, file);
@@ -37,12 +41,31 @@ export async function fixFiles(
       continue;
     }
 
-    const updated = applyFixes(outcome.text, fixable);
+    let skipped = 0;
+    let stale = 0;
+    const updated = applyFixes(outcome.text, fixable, {
+      onSkipped: (_finding, reason) => {
+        skipped += 1;
+        if (reason === 'stale') stale += 1;
+      },
+    });
+
+    // Worth a warning rather than a silent difference in the count: it means this file on
+    // disk is not the text the findings were read from, which under `--staged` is an
+    // unstaged edit and under a plain run is something having changed mid-flight.
+    if (stale > 0) {
+      onWarning?.(
+        `cannot fix ${String(stale)} finding(s) in ${file}: the text there has changed since ` +
+          `it was scanned, so the fix would land on content it was not computed against. ` +
+          `Re-run once the file and what was scanned agree.`,
+      );
+    }
+
     if (updated === outcome.text) continue;
 
     await writeFile(absolute, updated, 'utf8');
     files.push(file);
-    fixed += fixable.length;
+    fixed += fixable.length - skipped;
   }
 
   return { fixed, files };

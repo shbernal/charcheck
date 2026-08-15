@@ -47,6 +47,26 @@ replacement has changed the length of the text, and two findings whose spans ove
 corrupt each other. Line endings are never normalized and a byte order mark is preserved:
 only the matched spans are touched, and the file is never re-serialized.
 
+**A finding is only valid against the text it was scanned from**, and nothing in the types
+pairs the two. So each fix is checked before it is written: if the text at a finding's offset
+is no longer the text it matched, that fix is skipped rather than applied. Pass `onSkipped`
+to see why, which is also how to count what was actually written:
+
+```ts
+let written = 0;
+const output = applyFixes(text, findings, {
+  onSkipped: (finding, reason) => {
+    // 'stale'   the text there has changed, so the offset means nothing
+    // 'overlap' another finding's replacement already covers this span
+    console.warn(`skipped ${finding.ruleId}: ${reason}`);
+  },
+});
+```
+
+Without that check, handing over text that has moved on since the scan rewrites whatever now
+sits at those offsets. That is a real pairing, not a hypothetical one: it is what
+`--fix --staged` does, scanning the git index and writing the working tree.
+
 ## Scanning what a config file says to scan
 
 `scan` takes rules directly, which is what a test wants. To run the config a repo already

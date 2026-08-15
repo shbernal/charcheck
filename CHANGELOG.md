@@ -9,6 +9,30 @@ against every entry that does. A patch release does not.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`--fix --staged` no longer writes a fix into content it was not computed against.** The
+  mode reads findings from the git index and applies them to the working tree, and where a
+  file had unstaged edits on top of what was staged, the recorded offsets pointed at whatever
+  now sat there. `applyFixes` spliced anyway. An index holding a dash at offset 1, against a
+  working copy holding unrelated longer text, turned `hello world here` into
+  `h-llo world here`, staged it, and exited 0, so a file containing no banned character at
+  all was corrupted and committed by a tool reporting success. Each fix is now checked
+  against the text it is about to change and skipped when the match is no longer there, with
+  a warning naming the file. That closes the class rather than the one path: `applyFixes` is
+  exported, and any caller pairing findings with text that has moved on was exposed to the
+  same rewrite.
+
+- `--fix` counts the findings it actually wrote. Fixes skipped because another rule's
+  replacement already covered the same span were counted as applied, so two overlapping
+  fixable rules over one dash reported `Fixed 2 findings` after a single rewrite.
+
+### Added
+
+- `applyFixes` takes an optional `onSkipped` callback, reporting each fix it did not apply
+  and whether the cause was `'stale'` text or an `'overlap'`. Additive: the existing two
+  argument call is unchanged. `ApplyFixesOptions` and `SkipReason` are exported.
+
 ## [0.2.3]
 
 ### Fixed

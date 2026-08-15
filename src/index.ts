@@ -20,6 +20,7 @@ export type { ScanTextOptions } from './scan.js';
 export { scan, DEFAULT_IGNORE } from './scan-files.js';
 export type { ScanOptions } from './scan-files.js';
 export { applyFixes } from './fix.js';
+export type { ApplyFixesOptions, SkipReason } from './fix.js';
 export { clauseSeparator, fixStrategies, isFixStrategyName } from './fix-strategies.js';
 export type { FixStrategyName } from './fix-strategies.js';
 export { compileRule, RuleError } from './rule.js';
