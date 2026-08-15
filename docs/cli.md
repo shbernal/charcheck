@@ -30,13 +30,16 @@ would mean `charcheck src/` silently applying prose rules to source files.
 
 ## Exit codes
 
-| Exit code | Meaning                                      |
-| --------- | -------------------------------------------- |
-| `0`       | Clean                                        |
-| `1`       | Findings, or warnings above `--max-warnings` |
-| `2`       | A usage or config error                      |
+| Exit code | Meaning                                       |
+| --------- | --------------------------------------------- |
+| `0`       | Clean                                         |
+| `1`       | Findings, or warnings above `--max-warnings`  |
+| `2`       | A usage or config error, or an unfinished run |
 
-`2` is kept distinct so a broken config in CI is never mistaken for a real violation.
+`2` is kept distinct so a broken config in CI is never mistaken for a real violation. The two
+runs that earn it without a usage error are the ones where the tool did not finish its job:
+a file a rule targets that no scope could read, and fixes that never stopped changing. Both
+say so on stderr.
 
 ## `--quiet` and `--max-warnings`
 
@@ -68,6 +71,36 @@ filtering. The JSON report carries a `schemaVersion`.
 Under `--quiet`, `findings` holds the errors alone while `summary` still counts everything,
 which is the same split the pretty report makes between its list and its last line.
 
+## `--fix`
+
+Rewrites the findings whose rule declares a fix, then reports what is left. Read the diff: a
+fix is a guess about prose.
+
+Fixing is a **loop, not a single pass**, because a replacement is arbitrary text and can hold
+exactly what another rule bans. A house style that rewrites the em dash to an en dash, beside
+a rule that bans the en dash, needs two passes to reach the answer both rules agree on. One
+pass would leave the en dash on disk and report it as a finding, so running the same command
+again would give a different result. charcheck rewrites, re-scans and rewrites again until
+nothing changes.
+
+Two fixes over the same span are applied one per pass. Where a narrower rewrite already
+covered a wider fix's text, that wider one is skipped rather than spliced into text it was
+not computed against, and the re-scan is what gives it its next chance, judged against the
+file as it now reads.
+
+Rules can also disagree permanently, each rewriting what the other just wrote. Nothing can
+settle that, so the run stops after ten passes and says so:
+
+```
+charcheck: stopped after 10 fix passes with the text still changing, so two rules are
+rewriting each other's replacement. The files hold whatever the last pass wrote, which is
+one side of that argument rather than a settled result. This run is not a pass.
+```
+
+The exit code is then `2` unless the remaining findings already earned `1`. Either way the
+run is never reported as a clean fix, which is what stopping quietly on a pass limit would
+have done. What to look at is the pair of rules behind the findings that remain.
+
 ## `--staged`
 
 Reads each file's **staged content from the index**, not from the working tree. A hook that
@@ -76,7 +109,9 @@ left unstaged, is a hook you will turn off within a week.
 
 With `--fix` it rewrites the working tree and then stages exactly the files it changed, so
 the commit carries the fix. That is a real change to your index, stated here rather than
-discovered.
+discovered. Where the rules need more than one pass, each pass stages before the next one
+looks, because the next one reads the index: it would otherwise scan the file as though the
+previous pass had never run.
 
 Note which text is which: the findings are computed from the **index**, and the rewrite lands
 on the **working tree**. For a file whose working copy matches what you staged, which is the

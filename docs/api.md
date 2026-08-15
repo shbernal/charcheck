@@ -67,6 +67,13 @@ Without that check, handing over text that has moved on since the scan rewrites 
 sits at those offsets. That is a real pairing, not a hypothetical one: it is what
 `--fix --staged` does, scanning the git index and writing the working tree.
 
+One call is **one pass**, and one pass is not always the answer. A replacement is arbitrary
+text and can hold what another rule bans, and a fix skipped for overlap was never judged
+against the text the applied ones left behind. A caller that wants what the rules agree on
+scans the result and applies again until nothing changes. That is what `--fix` does, with a
+limit on the passes, since two rules can rewrite each other forever. See
+[Command line](cli.md).
+
 ## Scanning what a config file says to scan
 
 `scan` takes rules directly, which is what a test wants. To run the config a repo already
