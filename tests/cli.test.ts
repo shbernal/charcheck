@@ -96,6 +96,32 @@ describe('usage', () => {
     expect(result.err).toContain('whole number');
   });
 
+  it('refuses baseline flags that contradict each other', async () => {
+    const both = await cli(['--baseline', '--no-baseline']);
+    expect(both.code).toBe(EXIT_USAGE);
+    expect(both.err).toContain('opposites');
+
+    const strict = await cli(['--no-baseline', '--baseline-strict']);
+    expect(strict.code).toBe(EXIT_USAGE);
+    expect(strict.err).toContain('--baseline-strict');
+  });
+
+  it('refuses to write a baseline from a run over part of the tree', async () => {
+    const staged = await cli(['--baseline-write', '--staged']);
+    expect(staged.code).toBe(EXIT_USAGE);
+    expect(staged.err).toContain('part of the tree');
+
+    const paths = await cli(['--baseline-write', 'docs']);
+    expect(paths.code).toBe(EXIT_USAGE);
+    expect(paths.err).toContain('part of the tree');
+  });
+
+  it('refuses a baseline flag for a commit message', async () => {
+    const result = await cli(['--commit-msg', 'MSG', '--baseline']);
+    expect(result.code).toBe(EXIT_USAGE);
+    expect(result.err).toContain('no baseline');
+  });
+
   it('reports a missing config with exit 2 and a starter config', async () => {
     const bare = await mkdtemp(path.join(os.tmpdir(), 'charcheck-bare-'));
     try {

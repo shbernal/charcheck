@@ -33,6 +33,21 @@ Flags banned characters in targeted parts of a repo, driven by one config.
   --max-warnings <n>    Exit non-zero when warnings exceed n. Unlimited by
                         default. Crossing it is reported on stderr, with the
                         threshold and the distance past it.
+  --baseline            Read the baseline file, so only the findings it does not
+                        already account for are reported. Already on when the
+                        config sets "baseline"; --no-baseline turns it off for
+                        one run. The file is the config's "baseline" when that
+                        names a path, and charcheck-baseline.json beside the
+                        config otherwise. There is no path flag: a path here
+                        could not be told apart from a path to scan.
+  --baseline-write      Record every finding of this run in the baseline, so a
+                        repo that is not at zero can still go green. Refused for
+                        a run that saw part of the tree, since the files it did
+                        not read would be recorded as clean.
+  --baseline-strict     Also fail when the baseline holds an entry whose finding
+                        is gone. Off by default: those entries are reported
+                        either way, and failing on them turns a pull request
+                        that only fixed things red.
   --quiet               List errors only. Warnings are still counted in the
                         summary, and still decide --max-warnings.
   --report-issue        Print a bug report about charcheck itself: the versions
@@ -71,6 +86,15 @@ export interface Options {
   format: Format;
   maxWarnings?: number;
   quiet: boolean;
+  /**
+   * Read the baseline, or ignore it. Left unset the config's own key decides, which is what
+   * makes a bare `charcheck` in CI behave the way the repository configured it.
+   */
+  baseline?: boolean;
+  /** Record this run's findings as the baseline. */
+  baselineWrite: boolean;
+  /** Fail on an entry whose finding is gone, rather than only reporting it. */
+  baselineStrict: boolean;
   /** Print the config as it resolved, for a bug report about charcheck itself. */
   reportIssue: boolean;
   /** With `reportIssue`, print the globs as written rather than anonymized. */
@@ -93,6 +117,14 @@ export function parse(argv: string[], io: CliIo): Options | 'help' | 'version' {
         format: { type: 'string', default: 'pretty' },
         'max-warnings': { type: 'string' },
         quiet: { type: 'boolean', default: false },
+        // A boolean rather than the `--baseline [path]` this wanted to be: node's parser has
+        // no optional-argument option, and the space form would take the next word whatever
+        // it was, so `charcheck --baseline src` would silently read the baseline from `src`
+        // and scan the whole tree. The path belongs in the config, which every run shares.
+        baseline: { type: 'boolean', default: false },
+        'no-baseline': { type: 'boolean', default: false },
+        'baseline-write': { type: 'boolean', default: false },
+        'baseline-strict': { type: 'boolean', default: false },
         'report-issue': { type: 'boolean', default: false },
         verbatim: { type: 'boolean', default: false },
         'no-color': { type: 'boolean', default: false },
@@ -134,6 +166,32 @@ export function parse(argv: string[], io: CliIo): Options | 'help' | 'version' {
     throw new UsageError('--staged selects the files itself; do not also pass paths.');
   }
 
+  const baselineWrite = values['baseline-write'] === true;
+  const baselineStrict = values['baseline-strict'] === true;
+  const baselineOn = values.baseline === true;
+  const baselineOff = values['no-baseline'] === true;
+  if (baselineOn && baselineOff) {
+    throw new UsageError('--baseline and --no-baseline are opposites; use one.');
+  }
+  if (baselineOff && (baselineWrite || baselineStrict)) {
+    const other = baselineWrite ? '--baseline-write' : '--baseline-strict';
+    throw new UsageError(`--no-baseline turns the baseline off, so ${other} cannot apply.`);
+  }
+  if (commitMsg !== undefined && (baselineOn || baselineOff || baselineWrite || baselineStrict)) {
+    // A message is not a file in the tree, so nothing about it can be recorded against one.
+    throw new UsageError('a commit message has no baseline; drop the baseline flags.');
+  }
+  if (baselineWrite && (staged || parsed.positionals.length > 0)) {
+    // The write records the whole run as the whole truth. A run that looked at part of the
+    // tree would record every file it never opened as having no findings, which reads later
+    // as known-good and can never be told from the real thing.
+    const partial = staged ? '--staged' : 'a positional path';
+    throw new UsageError(
+      `--baseline-write records what the run saw, and ${partial} sees part of the tree: ` +
+        `the rest would be recorded as clean. Write it from a run over the whole tree.`,
+    );
+  }
+
   const reportIssue = values['report-issue'] === true;
   const verbatim = values.verbatim === true;
   if (verbatim && !reportIssue) {
@@ -151,6 +209,8 @@ export function parse(argv: string[], io: CliIo): Options | 'help' | 'version' {
         ['--format', format !== 'pretty'],
         ['--max-warnings', maxWarnings !== undefined],
         ['--quiet', values.quiet === true],
+        ['--baseline-write', baselineWrite],
+        ['--baseline-strict', baselineStrict],
         ['the positional paths', parsed.positionals.length > 0],
       ] as const
     ).find(([, given]) => given);
@@ -170,6 +230,9 @@ export function parse(argv: string[], io: CliIo): Options | 'help' | 'version' {
     format: format as Format,
     ...(maxWarnings !== undefined ? { maxWarnings } : {}),
     quiet: values.quiet === true,
+    ...(baselineOn || baselineOff ? { baseline: baselineOn } : {}),
+    baselineWrite,
+    baselineStrict,
     reportIssue,
     verbatim,
     color: values['no-color'] === true ? false : io.color,
