@@ -138,6 +138,18 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
       const where = path.relative(io.cwd, use.filepath) || use.filepath;
       if (report.written) warn(`recorded ${plural(baselined, 'finding')} in ${where}.`);
       else if (report.missing) warn(`no baseline at ${where}, so every finding is new.`);
+      if (report.pruned) {
+        const dropped = report.pruned.dropped;
+        const entries = `${String(dropped)} ${dropped === 1 ? 'entry' : 'entries'}`;
+        // Not staged under --staged: a hook that added a file to the commit on its own is
+        // worse than one that says what it changed.
+        warn(
+          dropped > 0
+            ? `dropped ${entries} from ${where} that the fixes removed. Commit the file.`
+            : `refreshed ${where} after the fixes. Commit the file.`,
+        );
+      }
+      if (report.pruneRefused) warn(`left ${where} alone: ${report.pruneRefused}`);
       if (stale > 0) {
         const entries = stale === 1 ? '1 baseline entry' : `${String(stale)} baseline entries`;
         warn(

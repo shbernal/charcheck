@@ -394,6 +394,35 @@ describe('the baseline', () => {
     expect(strict.err).toContain('--baseline-strict');
   });
 
+  it('still fixes a recorded finding, and drops the entry it just made unmatchable', async () => {
+    await cli(['--baseline-write']);
+
+    const result = await cli(['--fix', '--baseline']);
+    expect(result.code).toBe(EXIT_OK);
+    expect(await readFile(path.join(root, 'docs/bad.md'), 'utf8')).toBe(
+      'first line\nprose - here\n',
+    );
+    expect(result.err).toContain('dropped 1 entry');
+    expect((await baseline()) as { entries: unknown[] }).toMatchObject({
+      entries: [{ file: 'docs/warn.md' }],
+    });
+
+    // Nothing left to say about it: the entry is gone rather than reported forever.
+    const after = await cli(['--baseline-strict']);
+    expect(after.code).toBe(EXIT_OK);
+    expect(after.err).not.toContain('no longer match');
+  });
+
+  it('leaves entries alone for the files a fix run never looked at', async () => {
+    await cli(['--baseline-write']);
+
+    const result = await cli(['--fix', '--baseline', 'docs/bad.md']);
+    expect(result.code).toBe(EXIT_OK);
+    expect((await baseline()) as { entries: unknown[] }).toMatchObject({
+      entries: [{ file: 'docs/warn.md' }],
+    });
+  });
+
   it('subtracts what it accounts for before --max-warnings', async () => {
     await cli(['--baseline-write']);
     const result = await cli(['--baseline', '--max-warnings', '0']);
