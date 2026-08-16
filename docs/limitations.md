@@ -104,6 +104,26 @@ Needs the same.
 
 ## Git
 
+### Globs resolve against the filesystem, not git
+
+A rule's `include` is matched against the directory tree, so a file git would not carry is
+still scanned: build output, a scratch note left by a working session, a file named in
+`.gitignore` or in `.git/info/exclude`. A broad pattern such as `**/*.md` reaches all of
+them. Only `node_modules` and `.git` are skipped without being asked for.
+
+Name the file or the directory in the rule's `exclude`, or in the top-level `ignore` to keep
+it out of every rule.
+
+This is a surprise the first time and is the intended behaviour, for two reasons. charcheck
+runs in directories that are not repositories at all, and a file that is about to be
+committed should already be clean, so checking it before it is tracked is the useful
+ordering rather than the wrong one. Reading git instead would also mean a rule silently
+checking fewer files than its globs name, which is the failure this whole page is written
+against.
+
+`--staged` is the run that answers the other question. It reads the index, so what a commit
+actually carries is checked by something that never opens an untracked file.
+
 ### A file staged as added and then deleted is not scanned
 
 Under `--staged`, that is.
