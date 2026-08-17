@@ -43,7 +43,8 @@ export default defineConfig({
 | `baseline`       | `string \| boolean` | Record the findings the repository already has and fail only on new ones. `true` means `charcheck-baseline.json` beside this file; a string is a path relative to it. See [Baseline](baseline.md). |
 
 `node_modules` and `.git` are always ignored. Dotted directories are only scanned when a
-pattern names them, so a rule meant to cover `.github/` needs a glob that says so.
+pattern names them, so a rule meant to cover `.github/` needs a glob that says so, and a
+dotted scratch directory needs no `ignore` entry to stay out.
 
 ## Fixes
 

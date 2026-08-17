@@ -109,10 +109,15 @@ Needs the same.
 A rule's `include` is matched against the directory tree, so a file git would not carry is
 still scanned: build output, a scratch note left by a working session, a file named in
 `.gitignore` or in `.git/info/exclude`. A broad pattern such as `**/*.md` reaches all of
-them. Only `node_modules` and `.git` are skipped without being asked for.
+them. `node_modules` and `.git` are skipped without being asked for, and so is every other
+dotted directory, which is the same rule that makes `.github/` need a pattern naming it.
 
 Name the file or the directory in the rule's `exclude`, or in the top-level `ignore` to keep
 it out of every rule.
+
+A scratch directory that already carries a dot is therefore covered, and adding it to
+`ignore` changes nothing. That is worth knowing in the other direction as well: renaming
+`.notes/` to `notes/` starts scanning it, with no config change to point at afterwards.
 
 This is a surprise the first time and is the intended behaviour, for two reasons. charcheck
 runs in directories that are not repositories at all, and a file that is about to be
