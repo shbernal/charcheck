@@ -108,10 +108,10 @@ describe('clauseSeparator', () => {
   describe('a colon that is not sentence punctuation', () => {
     it('is ignored inside a Markdown link target', async () => {
       const text =
-        `The oracle gates decks written by [ts-pptx](https://npmjs.com/package/ts-pptx) ` +
+        `The suite gates pages written by [the generator](https://example.com/pkg/generator) ` +
         `${EM_DASH} the samples above are that corpus.\n`;
       expect(await fixed(text)).toBe(
-        'The oracle gates decks written by [ts-pptx](https://npmjs.com/package/ts-pptx): ' +
+        'The suite gates pages written by [the generator](https://example.com/pkg/generator): ' +
           'the samples above are that corpus.\n',
       );
     });
