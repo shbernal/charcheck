@@ -186,6 +186,43 @@ describe('suppressions', () => {
     const text = `<!-- charcheck-disable-next-line no-em-dash -->\nvalue ${EM_DASH}`;
     expect(await scanText(text, 'a.md', [emDashRule], { assumeText: true })).toEqual([]);
   });
+
+  it('reads a rule id written flush against a comment terminator', async () => {
+    // Reported against 0.2.5: the unspaced form parsed as no rule ids at all, and no rule
+    // ids means every rule, so a marker naming one rule silenced every rule on the line.
+    // One space either side of the id was the whole difference.
+    const both = [emDashRule, rule({ id: 'other' })];
+    for (const [marker, file] of [
+      [`<!--charcheck-disable-next-line no-em-dash-->`, 'a.md'],
+      [`/*charcheck-disable-next-line no-em-dash*/`, 'a.ts'],
+      [`{{!--charcheck-disable-next-line no-em-dash--}}`, 'a.hbs'],
+      [`{#charcheck-disable-next-line no-em-dash#}`, 'a.jinja'],
+    ] as const) {
+      const findings = await scanText(`${marker}\nvalue ${EM_DASH}`, file, both, {
+        assumeText: true,
+      });
+      expect(
+        findings.map((f) => f.ruleId),
+        marker,
+      ).toEqual(['other']);
+    }
+  });
+
+  it('suppresses nothing, not everything, when a rule id is unreadable', async () => {
+    // The failure direction is the point. An id the parser cannot read has to degrade to a
+    // suppression that does nothing, because the opposite degradation removes checks and
+    // does it silently, in whichever file the author was editing at the time.
+    const text = `<!-- charcheck-disable-next-line no-em-dash! -->\nvalue ${EM_DASH}`;
+    const findings = await scanText(text, 'a.md', [emDashRule, rule({ id: 'other' })], {
+      assumeText: true,
+    });
+    expect(findings.map((f) => f.ruleId)).toEqual(['no-em-dash', 'other']);
+  });
+
+  it('still suppresses every rule for a bare marker against a terminator', async () => {
+    const text = `<!--charcheck-disable-next-line-->\nvalue ${EM_DASH}`;
+    expect(await scanText(text, 'a.md', [emDashRule], { assumeText: true })).toEqual([]);
+  });
 });
 
 describe('fixes', () => {

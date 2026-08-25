@@ -129,10 +129,23 @@ charcheck-disable-file [ruleId...]
 With no rule ids, every rule is suppressed. This works inside `//`, `#`, `<!-- -->` and
 YAML comments without charcheck knowing which language it is reading.
 
-That last property has a consequence worth knowing: charcheck cannot tell a marker in a
-comment from the same words in ordinary text, so **writing about the syntax activates it**.
-A page documenting the file-level marker would suppress itself, silently, and look like a
-clean file forever.
+A rule id may be written flush against the comment's closing delimiter. Both of these name
+`dash` and leave every other rule reporting:
+
+```
+<!--charcheck-disable-line dash-->
+<!-- charcheck-disable-line dash -->
+```
+
+Only a marker followed by nothing but whitespace and that delimiter names no rules. One
+whose ids cannot be read, because of a stray character, or a free-form reason written where
+an id belongs, suppresses nothing rather than everything. The two mistakes look alike in the
+file, and only one of them can be allowed to remove checks.
+
+Finding markers by matching text rather than by parsing comments has a consequence worth
+knowing: charcheck cannot tell a marker in a comment from the same words in ordinary text,
+so **writing about the syntax activates it**. A page documenting the file-level marker
+would suppress itself, silently, and look like a clean file forever.
 
 The one exception is a fenced code block in a Markdown file, where a marker is treated as
 an example and ignored. That is how this page shows the syntax while still being checked.

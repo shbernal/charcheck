@@ -8,8 +8,13 @@
 
 const MARKER = /charcheck-disable-(file|next-line|line)([^\r\n]*)/g;
 
-/** Ends a comment; rule ids stop here rather than swallowing the closing delimiter. */
-const COMMENT_ENDINGS = new Set(['-->', '*/', '}}', '#}']);
+/**
+ * Ends a comment. A rule id list stops here rather than swallowing the closing delimiter,
+ * and a delimiter written flush against the last id is stripped back off it.
+ *
+ * Longest first, so `--}}` is read whole rather than as `}}` leaving a stray `--` behind.
+ */
+const COMMENT_ENDINGS = ['--}}', '-->', '*/', '}}', '#}'];
 
 const RULE_ID = /^[A-Za-z0-9_.:/-]+$/;
 
@@ -22,29 +27,53 @@ export interface Suppressions {
   allLines: Set<number>;
 }
 
-function parseRuleIds(rest: string): string[] {
+interface ParsedIds {
+  /** The rule ids the marker names, in the order they were written. */
+  ids: string[];
+  /**
+   * The marker named nothing, so it covers every rule.
+   *
+   * True only for a bare marker, one followed by nothing but whitespace and its own
+   * comment terminator. A marker that names something unreadable suppresses nothing
+   * instead, because the two mistakes are indistinguishable from the text and only one of
+   * them can be allowed to remove checks.
+   */
+  blanket: boolean;
+}
+
+function parseRuleIds(rest: string): ParsedIds {
   const ids: string[] = [];
   for (const token of rest.trim().split(/\s+/)) {
     if (token.length === 0) continue;
-    if (COMMENT_ENDINGS.has(token)) break;
-    if (!RULE_ID.test(token)) break;
-    ids.push(token);
+
+    // No rule id can end in `>`, `*`, `}` or `#`, so a terminator suffix is unambiguously
+    // the comment closing rather than part of the id it is written against.
+    const ending = COMMENT_ENDINGS.find((end) => token.endsWith(end));
+    const id = ending === undefined ? token : token.slice(0, -ending.length);
+
+    // The comment closed. Whatever follows belongs to the file, not to the marker.
+    if (id.length === 0) break;
+    if (!RULE_ID.test(id)) return { ids, blanket: false };
+
+    ids.push(id);
+    if (ending !== undefined) break;
   }
-  return ids;
+  return { ids, blanket: ids.length === 0 };
 }
 
 function suppress(
   target: { all: Set<number>; rules: Map<number, Set<string>> },
   line: number,
-  ids: string[],
+  parsed: ParsedIds,
 ): void {
-  if (ids.length === 0) {
+  if (parsed.blanket) {
     target.all.add(line);
     return;
   }
+  if (parsed.ids.length === 0) return;
   const existing = target.rules.get(line);
-  if (existing) for (const id of ids) existing.add(id);
-  else target.rules.set(line, new Set(ids));
+  if (existing) for (const id of parsed.ids) existing.add(id);
+  else target.rules.set(line, new Set(parsed.ids));
 }
 
 const MARKDOWN = /\.(md|markdown|mdx)$/i;
@@ -80,14 +109,14 @@ export function parseSuppressions(text: string, file = ''): Suppressions {
     let match: RegExpExecArray | null;
     while ((match = MARKER.exec(source)) !== null) {
       const kind = match[1]!;
-      const ids = parseRuleIds(match[2] ?? '');
+      const parsed = parseRuleIds(match[2] ?? '');
       if (kind === 'file') {
-        if (ids.length === 0) result.allFile = true;
-        else for (const id of ids) result.fileRules.add(id);
+        if (parsed.blanket) result.allFile = true;
+        else for (const id of parsed.ids) result.fileRules.add(id);
       } else if (kind === 'next-line') {
-        suppress(lines, lineNumber + 1, ids);
+        suppress(lines, lineNumber + 1, parsed);
       } else {
-        suppress(lines, lineNumber, ids);
+        suppress(lines, lineNumber, parsed);
       }
     }
   }
