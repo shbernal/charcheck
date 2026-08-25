@@ -32,6 +32,12 @@ import type { CliIo, Options } from './options.js';
 
 export interface ScanOutcome {
   findings: Finding[];
+  /**
+   * The findings a marker silenced, from the last look the run took. Kept beside the
+   * findings rather than among them: `--fix` must not rewrite the text a marker exists to
+   * leave alone, and the exit code must not fail on a silence somebody wrote on purpose.
+   */
+  suppressed: Finding[];
   sources: Map<string, string>;
   fixedCount: number;
   /**
@@ -48,6 +54,17 @@ export interface ScanOutcome {
    * restriction each mode passed answers the same question and is already in hand.
    */
   scope: BaselineScope;
+}
+
+/**
+ * The order `scan` puts its own findings in. Suppressed ones arrive as the files are read,
+ * which is concurrent, so a report over them would otherwise be ordered by how fast a disk
+ * answered.
+ */
+function sortFindings(findings: Finding[]): Finding[] {
+  return findings.sort((a, b) =>
+    a.file < b.file ? -1 : a.file > b.file ? 1 : a.offset - b.offset,
+  );
 }
 
 /**
@@ -76,10 +93,18 @@ export async function runTree(
   warn: (message: string) => void,
   skip: (file: string, error: Error) => void,
 ): Promise<ScanOutcome> {
+  const suppressed: Finding[] = [];
   const scanOptions = {
     ...toScanOptions(loaded, options.paths.length > 0 ? { files: options.paths } : {}),
     onWarning: warn,
     onSkipped: skip,
+    onSuppressed: (finding: Finding) => suppressed.push(finding),
+  };
+  // `--fix` looks more than once, and every pass meets the same markers. Cleared before each
+  // one so the count describes the tree as it now reads, rather than summing the passes.
+  const rescan = async (): Promise<Finding[]> => {
+    suppressed.length = 0;
+    return scan(scanOptions);
   };
 
   let findings = await scan(scanOptions);
@@ -87,12 +112,7 @@ export async function runTree(
   let converged = true;
 
   if (options.fix && findings.some(isFixable)) {
-    const outcome = await fixToFixpoint(
-      scanOptions.root,
-      findings,
-      async () => scan(scanOptions),
-      warn,
-    );
+    const outcome = await fixToFixpoint(scanOptions.root, findings, rescan, warn);
     findings = outcome.findings;
     fixedCount = outcome.fixed;
     converged = outcome.converged;
@@ -112,7 +132,7 @@ export async function runTree(
           files: new Set(options.paths.map((file) => relativeToRoot(scanOptions.root, file))),
         }
       : { kind: 'all' };
-  return { findings, sources, fixedCount, converged, scope };
+  return { findings, suppressed: sortFindings(suppressed), sources, fixedCount, converged, scope };
 }
 
 /**
@@ -140,14 +160,17 @@ export async function runCommitMsg(
 
   const display = toPosix(file);
   const textAttributes = textAttributesOf(loaded.config);
+  const suppressed: Finding[] = [];
   const findings = await scanText(prepared.masked, display, rules, {
     assumeText: true,
+    onSuppressed: (finding) => suppressed.push(finding),
     ...(textAttributes ? { textAttributes } : {}),
   });
 
   // The excerpt comes from the original, not the blanked copy.
   return {
     findings,
+    suppressed: sortFindings(suppressed),
     sources: new Map([[display, outcome.text]]),
     fixedCount: 0,
     // `--fix` is refused with `--commit-msg`, so nothing here can fail to settle.
@@ -206,13 +229,22 @@ export async function runStaged(
   const staged = await stagedFiles(io.cwd);
   const scope: BaselineScope = { kind: 'files', files: new Set(staged.map(toConfigPath)) };
   if (staged.length === 0) {
-    return { findings: [], sources: new Map(), fixedCount: 0, converged: true, scope };
+    return {
+      findings: [],
+      suppressed: [],
+      sources: new Map(),
+      fixedCount: 0,
+      converged: true,
+      scope,
+    };
   }
 
+  const suppressed: Finding[] = [];
   const scanOptions = {
     ...toScanOptions(loaded, { files: staged.map(toConfigPath) }),
     onWarning: warn,
     onSkipped: skip,
+    onSuppressed: (finding: Finding) => suppressed.push(finding),
     read: async (file: string) => {
       try {
         return { ok: true as const, text: await stagedContent(root, toRepoPath(file)) };
@@ -254,7 +286,12 @@ export async function runStaged(
     // the commit would still carry the unfixed content. Staged after every pass rather than
     // once at the end, because the next pass scans the index: an unstaged fix would be read
     // as never having happened, and the pass would compute the same finding again.
-    const outcome = await fixToFixpoint(configRoot, findings, async () => scan(scanOptions), warn, {
+    // Cleared before each pass, as in `runTree`: the markers are met again every time.
+    const rescan = async (): Promise<Finding[]> => {
+      suppressed.length = 0;
+      return scan(scanOptions);
+    };
+    const outcome = await fixToFixpoint(configRoot, findings, rescan, warn, {
       hold,
       afterPass: async (files) => stageFiles(root, files.map(toRepoPath)),
     });
@@ -270,6 +307,7 @@ export async function runStaged(
 
   return {
     findings,
+    suppressed: sortFindings(suppressed),
     sources: await sourcesFor(findings, scanOptions.read),
     fixedCount,
     converged,

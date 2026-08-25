@@ -43,6 +43,12 @@ export interface ScanOptions extends ExtractorOptions {
    */
   onSkipped?: (file: string, error: Error) => void;
   /**
+   * Called for a finding a suppression marker silenced, which is never returned. A caller
+   * that ignores this cannot tell a run that found nothing from one that was told to say
+   * nothing, and those are the two runs a suppression sits between.
+   */
+  onSuppressed?: (finding: Finding) => void;
+  /**
    * Supplies a file's content instead of the filesystem, given its root-relative path.
    * A staged run uses this to read the git index rather than the working tree.
    */
@@ -175,6 +181,7 @@ export async function scan(options: ScanOptions): Promise<Finding[]> {
     try {
       return await scanText(outcome.text, file, rules, {
         textAttributes: options.textAttributes,
+        ...(options.onSuppressed ? { onSuppressed: options.onSuppressed } : {}),
       });
     } catch (cause) {
       // One file no scope can read must not take the report down with it: the findings

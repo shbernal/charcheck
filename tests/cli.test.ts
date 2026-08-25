@@ -281,6 +281,85 @@ describe('filtering and exit codes', () => {
   });
 });
 
+/**
+ * A suppressed finding used to be dropped at the match site, so a run in which every finding
+ * was silenced printed exactly what a run over a clean tree printed, in every format. The
+ * marker is the one hole a user opens on purpose, and it was the least visible thing in the
+ * output.
+ */
+describe('suppression counts', () => {
+  const MARKER = 'charcheck-disable-next-line';
+
+  beforeEach(async () => {
+    await write(
+      'docs/silenced.md',
+      `<!-- ${MARKER} -->\nprose ${EM_DASH} and ${ZERO_WIDTH_SPACE} here\n`,
+    );
+  });
+
+  it('tells a silenced run apart from a clean one', async () => {
+    const silenced = await cli(['docs/silenced.md']);
+    const clean = await cli(['docs/clean.md']);
+    expect(silenced.code).toBe(EXIT_OK);
+    expect(silenced.out).toContain('2 findings suppressed');
+    expect(silenced.out).not.toBe(clean.out);
+  });
+
+  it('says nothing extra when no marker silenced anything', async () => {
+    const result = await cli(['docs/clean.md']);
+    expect(result.out).not.toContain('suppressed');
+  });
+
+  it('carries the count in the summary clause when there are findings too', async () => {
+    const result = await cli(['docs/silenced.md', 'docs/bad.md']);
+    expect(result.code).toBe(EXIT_FINDINGS);
+    expect(result.out).toContain('1 error, 0 warnings, 2 suppressed in 1 file');
+  });
+
+  it('counts them in the json summary without listing them', async () => {
+    const result = await cli(['docs/silenced.md', '--format', 'json']);
+    const report = JSON.parse(result.out) as {
+      findings: unknown[];
+      summary: { errors: number; suppressed: number };
+    };
+    expect(report.findings).toEqual([]);
+    expect(report.summary).toMatchObject({ errors: 0, suppressed: 2 });
+  });
+
+  it('emits them as sarif results a viewer knows to fold away', async () => {
+    const result = await cli(['docs/silenced.md', '--format', 'sarif']);
+    const report = JSON.parse(result.out) as {
+      runs: { results: { ruleId: string; suppressions?: { kind: string }[] }[] }[];
+    };
+    const results = report.runs[0]!.results;
+    expect(results.map((one) => one.ruleId)).toEqual(['no-em-dash', 'no-zero-width']);
+    expect(results.every((one) => one.suppressions?.[0]?.kind === 'inSource')).toBe(true);
+  });
+
+  it('fails once they exceed --max-suppressions, and says by how much', async () => {
+    const allowed = await cli(['docs/silenced.md', '--max-suppressions', '2']);
+    expect(allowed.code).toBe(EXIT_OK);
+
+    const limited = await cli(['docs/silenced.md', '--max-suppressions', '1']);
+    expect(limited.code).toBe(EXIT_FINDINGS);
+    expect(limited.err).toContain(
+      '2 findings suppressed, 1 over the --max-suppressions limit of 1',
+    );
+  });
+
+  it('leaves suppressed text alone under --fix and counts it once', async () => {
+    // The count comes from the last look the run took, not from summing the passes, and the
+    // fix must never reach text a marker exists to leave alone.
+    const original = `<!-- ${MARKER} -->\nsilenced ${EM_DASH}\nreported ${EM_DASH}\n`;
+    await write('docs/mixed.md', original);
+    const result = await cli(['docs/mixed.md', '--fix']);
+    expect(await readFile(path.join(root, 'docs/mixed.md'), 'utf8')).toBe(
+      `<!-- ${MARKER} -->\nsilenced ${EM_DASH}\nreported -\n`,
+    );
+    expect(result.out).toContain('1 finding suppressed');
+  });
+});
+
 describe('--fix', () => {
   it('rewrites what it can, reports the rest, and counts', async () => {
     const result = await cli(['--fix']);

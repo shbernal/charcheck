@@ -8,6 +8,15 @@ import type { ListOptions, Summary } from './summary.js';
  */
 export const JSON_SCHEMA_VERSION = 1;
 
+export interface JsonOptions extends ListOptions {
+  /**
+   * The findings a suppression marker silenced. Counted in `summary.suppressed` and
+   * deliberately not listed: a reviewed silence enumerated on every run is noise, and one
+   * number answers the question a consumer has, which is whether anything went quiet.
+   */
+  suppressed?: readonly Finding[];
+}
+
 export interface JsonReport {
   schemaVersion: number;
   /** What the run reported. Under `--quiet` this holds the errors alone. */
@@ -16,14 +25,14 @@ export interface JsonReport {
   summary: Summary;
 }
 
-export function toJsonReport(findings: readonly Finding[], options: ListOptions = {}): JsonReport {
+export function toJsonReport(findings: readonly Finding[], options: JsonOptions = {}): JsonReport {
   return {
     schemaVersion: JSON_SCHEMA_VERSION,
     findings: [...listed(findings, options)],
-    summary: summarize(findings),
+    summary: summarize(findings, options.suppressed),
   };
 }
 
-export function formatJson(findings: readonly Finding[], options: ListOptions = {}): string {
+export function formatJson(findings: readonly Finding[], options: JsonOptions = {}): string {
   return JSON.stringify(toJsonReport(findings, options), null, 2);
 }

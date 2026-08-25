@@ -9,6 +9,8 @@ charcheck [paths...]
   --commit-msg <file>   Check a commit message.
   --format <fmt>        pretty (default), json, or sarif.
   --max-warnings <n>    Exit non-zero when warnings exceed n.
+  --max-suppressions <n>
+                        Exit non-zero when suppressed findings exceed n.
   --quiet               List errors only. Warnings are still counted.
   --baseline            Report only the findings the baseline does not hold.
   --no-baseline         Ignore the baseline for one run.
@@ -33,7 +35,7 @@ would mean `charcheck src/` silently applying prose rules to source files.
 | Exit code | Meaning                                       |
 | --------- | --------------------------------------------- |
 | `0`       | Clean                                         |
-| `1`       | Findings, or warnings above `--max-warnings`  |
+| `1`       | Findings, or a count above its `--max-` limit |
 | `2`       | A usage or config error, or an unfinished run |
 
 `2` is kept distinct so a broken config in CI is never mistaken for a real violation. The two
@@ -62,6 +64,57 @@ the exit code is diagnosable in every format:
 ```
 charcheck: 685 warnings, 1 over the --max-warnings limit of 684.
 ```
+
+## Suppression counts
+
+A [suppression comment](configuration.md#suppressions) is the one hole you open in your own
+check on purpose. Every run says how many findings went through it, so a silenced run stops
+looking like a clean one:
+
+```
+No banned characters found.
+2 findings suppressed by a marker.
+```
+
+With findings of its own, the same number joins the summary line:
+
+```
+1 error, 0 warnings, 2 suppressed in 1 file
+```
+
+A repository with no markers sees nothing new, which is most of them on most runs.
+
+The findings themselves are **not listed**. A silence somebody wrote deliberately and had
+reviewed, re-printed on every run afterwards, is how a team learns to stop reading the last
+line. One number answers the question, which is whether anything went quiet.
+
+Where to read it in each format:
+
+| Format   | Where                                                                    |
+| -------- | ------------------------------------------------------------------------ |
+| `pretty` | The summary line, or its own line when there is nothing else to report   |
+| `json`   | `summary.suppressed`, a count beside the others                          |
+| `sarif`  | Each one as a result carrying `"suppressions": [{ "kind": "inSource" }]` |
+
+SARIF is the exception because SARIF has a mechanism for exactly this. A viewer already
+knows to fold such a result away and code scanning does not raise an alert for it, so the
+finding itself is what the format should carry, and the reader decides whether to look.
+
+`--max-suppressions <n>` fails the run once the count passes `n`, in the same shape as
+`--max-warnings`, and says so on stderr:
+
+```
+charcheck: 12 findings suppressed, 2 over the --max-suppressions limit of 10.
+```
+
+That makes the holes a **ratchet** rather than a number to watch: freeze the count where it
+is today, let it shrink, and a pull request that opens a new one has to say why. A finding
+an error already failed the run on takes precedence, so this line appears when the run would
+otherwise have passed.
+
+Suppressed findings are counted, never fixed and never failed on. `--fix` does not rewrite
+text a marker exists to leave alone, and the count comes from the last look a run took
+rather than from summing its fix passes.
 
 ## Output formats
 

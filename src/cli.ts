@@ -180,10 +180,11 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
   // hides is still counted. A summary that agreed with the listing rather than with the
   // exit code left a failing run saying nothing was wrong.
   const quiet = options.quiet;
+  const suppressed = outcome.suppressed;
   if (options.format === 'json') {
-    io.out(formatJson(findings, { quiet }));
+    io.out(formatJson(findings, { quiet, suppressed }));
   } else if (options.format === 'sarif') {
-    io.out(formatSarif(findings, { toolVersion: await version(), quiet }));
+    io.out(formatSarif(findings, { toolVersion: await version(), quiet, suppressed }));
   } else {
     io.out(
       formatPretty(findings, {
@@ -192,6 +193,7 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
         fixedCount,
         quiet,
         baselined,
+        suppressed: suppressed.length,
       }),
     );
   }
@@ -211,6 +213,17 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
     const over = warnings - options.maxWarnings;
     warn(
       `${plural(warnings, 'warning')}, ${String(over)} over the --max-warnings limit of ${String(options.maxWarnings)}.`,
+    );
+    return EXIT_FINDINGS;
+  }
+  if (options.maxSuppressions !== undefined && suppressed.length > options.maxSuppressions) {
+    // Read the same way as --max-warnings above, and said in full for the same reason: no
+    // part of the report explains this exit code on its own. A repository ratchets the holes
+    // in its own check down with it, rather than only watching the number move.
+    const over = suppressed.length - options.maxSuppressions;
+    warn(
+      `${plural(suppressed.length, 'finding')} suppressed, ${String(over)} over the ` +
+        `--max-suppressions limit of ${String(options.maxSuppressions)}.`,
     );
     return EXIT_FINDINGS;
   }

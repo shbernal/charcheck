@@ -142,6 +142,13 @@ whose ids cannot be read, because of a stray character, or a free-form reason wr
 an id belongs, suppresses nothing rather than everything. The two mistakes look alike in the
 file, and only one of them can be allowed to remove checks.
 
+Every run counts the findings its markers silenced and says so, because a suppression that
+nobody can see is the same output as a tree with nothing wrong in it. The count is on the
+summary line, in `summary.suppressed` of the JSON report, and as a SARIF result carrying
+`"suppressions": [{ "kind": "inSource" }]`. The findings are counted, never listed:
+[Command line](cli.md#suppression-counts) has the whole of it, including the
+`--max-suppressions` ratchet.
+
 Finding markers by matching text rather than by parsing comments has a consequence worth
 knowing: charcheck cannot tell a marker in a comment from the same words in ordinary text,
 so **writing about the syntax activates it**. A page documenting the file-level marker

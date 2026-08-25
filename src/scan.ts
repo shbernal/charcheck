@@ -14,6 +14,17 @@ import type { Chunk, ExtractorOptions, Finding, Rule } from './types.js';
 export interface ScanTextOptions extends ExtractorOptions {
   /** Skip the binary sniff, for callers that already know the text is text. */
   assumeText?: boolean;
+  /**
+   * Called for a finding a marker silenced, instead of it being returned.
+   *
+   * A suppressed finding is never in the returned array, so a caller that fixes or fails on
+   * findings is unaffected by asking for this. What it buys is the ability to say how many
+   * checks a run gave up, which is otherwise the one thing a silenced run looks exactly like
+   * a clean one about.
+   *
+   * The finding is built in full, replacement included, only when this is given.
+   */
+  onSuppressed?: (finding: Finding) => void;
 }
 
 /** How much of the file to sniff before deciding it is binary. */
@@ -91,6 +102,15 @@ export async function scanText(
   };
 
   const findings: Finding[] = [];
+  const context: ScanContext = {
+    source,
+    file,
+    findings,
+    lines,
+    sentences,
+    suppressed,
+    ...(options.onSuppressed ? { onSuppressed: options.onSuppressed } : {}),
+  };
 
   for (const rule of rules) {
     const compiled = compileRule(rule);
@@ -104,7 +124,7 @@ export async function scanText(
 
     for (const chunk of chunks) {
       if (!mayMatch(matches, chunk)) continue;
-      collectInChunk(chunk, compiled, source, file, findings, lines, sentences, suppressed);
+      collectInChunk(chunk, compiled, context);
     }
   }
 
@@ -171,16 +191,23 @@ function mayMatch(matches: Matches, chunk: Chunk): boolean {
   return first < starts.length && starts[first]! < chunk.end;
 }
 
-function collectInChunk(
-  chunk: Chunk,
-  rule: CompiledRule,
-  source: string,
-  file: string,
-  findings: Finding[],
-  lines: () => LineIndex,
-  sentences: () => SentenceIndex,
-  suppressed: (ruleId: string, line: number) => boolean,
-): void {
+/**
+ * What every chunk of one file is collected against: the text, the lazy indices over it, and
+ * where a finding goes once built. Bundled rather than passed one by one, because the
+ * collector needs all of it and none of it varies per chunk.
+ */
+interface ScanContext {
+  source: string;
+  file: string;
+  findings: Finding[];
+  lines: () => LineIndex;
+  sentences: () => SentenceIndex;
+  suppressed: (ruleId: string, line: number) => boolean;
+  onSuppressed?: (finding: Finding) => void;
+}
+
+function collectInChunk(chunk: Chunk, rule: CompiledRule, context: ScanContext): void {
+  const { source, file, findings, lines, sentences, suppressed, onSuppressed } = context;
   const { regex } = rule;
   regex.lastIndex = chunk.start;
 
@@ -221,7 +248,11 @@ function collectInChunk(
     }
 
     const { line, column } = positionAt(lines(), start);
-    if (suppressed(rule.id, line)) continue;
+    // Nobody asked what was silenced, so a silenced match costs nothing more than the
+    // position that decided it. Resolving a fix is the expensive half, and a fix is a
+    // function the config supplies.
+    const silenced = suppressed(rule.id, line);
+    if (silenced && onSuppressed === undefined) continue;
 
     const enclosing =
       chunk.container === 'self'
@@ -229,7 +260,7 @@ function collectInChunk(
         : sentenceAt(sentences(), start);
     const replacement = resolveReplacement(rule, matched, enclosing.text, start - enclosing.start);
 
-    findings.push({
+    const finding: Finding = {
       ruleId: rule.id,
       file,
       line,
@@ -241,6 +272,12 @@ function collectInChunk(
       severity: rule.severity,
       fixable: replacement !== undefined,
       ...(replacement !== undefined ? { replacement } : {}),
-    });
+    };
+
+    // A suppressed finding is handed over rather than returned. It must not reach the
+    // returned array: `--fix` would rewrite the text a marker exists to leave alone, and the
+    // exit code would fail on a finding the author silenced on purpose.
+    if (silenced) onSuppressed?.(finding);
+    else findings.push(finding);
   }
 }

@@ -16,6 +16,12 @@ export interface PrettyOptions extends ListOptions {
    * run, so the count is the only thing that says the report is smaller than the tree.
    */
   baselined?: number;
+  /**
+   * How many findings a suppression marker silenced. Counted, never listed: a silence
+   * somebody wrote on purpose and re-read on every run is how people learn to stop reading
+   * the last line. One number answers whether anything went quiet, which is the question.
+   */
+  suppressed?: number;
 }
 
 /** Shared with the CLI, so a count reads the same wherever a person meets it. */
@@ -75,8 +81,15 @@ export function formatPretty(findings: readonly Finding[], options: PrettyOption
         options.baselined ? 'No new banned characters found.' : 'No banned characters found.',
       ),
     );
+    // The line this whole count exists for. With no findings there is no summary clause to
+    // carry it, and a run in which every finding was silenced would otherwise print exactly
+    // what a run over a clean tree prints, down to the byte.
+    if (options.suppressed) {
+      out.push(c.dim(`${plural(options.suppressed, 'finding')} suppressed by a marker.`));
+    }
   } else {
     const parts = [plural(summary.errors, 'error'), plural(summary.warnings, 'warning')];
+    if (options.suppressed) parts.push(`${String(options.suppressed)} suppressed`);
     const where = `in ${plural(summary.files, 'file')}`;
     const fixable =
       summary.fixable > 0 ? c.dim(` (${String(summary.fixable)} fixable with --fix)`) : '';

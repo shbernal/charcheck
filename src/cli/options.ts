@@ -36,6 +36,11 @@ Flags banned characters in targeted parts of a repo, driven by one config.
   --max-warnings <n>    Exit non-zero when warnings exceed n. Unlimited by
                         default. Crossing it is reported on stderr, with the
                         threshold and the distance past it.
+  --max-suppressions <n>
+                        Exit non-zero when the findings silenced by a marker
+                        exceed n. Unlimited by default. A ratchet over the holes
+                        a repo has opened in its own check, in the same shape as
+                        --max-warnings.
   --baseline            Read the baseline file, so only the findings it does not
                         already account for are reported. Already on when the
                         config sets "baseline"; --no-baseline turns it off for
@@ -89,6 +94,8 @@ export interface Options {
   fix: boolean;
   format: Format;
   maxWarnings?: number;
+  /** Fail when the run silenced more findings than this. Unset means no limit. */
+  maxSuppressions?: number;
   quiet: boolean;
   /**
    * Read the baseline, or ignore it. Left unset the config's own key decides, which is what
@@ -120,6 +127,7 @@ export function parse(argv: string[], io: CliIo): Options | 'help' | 'version' {
         'commit-msg': { type: 'string' },
         format: { type: 'string', default: 'pretty' },
         'max-warnings': { type: 'string' },
+        'max-suppressions': { type: 'string' },
         quiet: { type: 'boolean', default: false },
         // A boolean rather than the `--baseline [path]` this wanted to be: node's parser has
         // no optional-argument option, and the space form would take the next word whatever
@@ -149,13 +157,16 @@ export function parse(argv: string[], io: CliIo): Options | 'help' | 'version' {
     throw new UsageError(`unknown format "${format}". Use ${FORMATS.join(', ')}.`);
   }
 
-  let maxWarnings: number | undefined;
-  if (values['max-warnings'] !== undefined) {
-    maxWarnings = Number(values['max-warnings']);
-    if (!Number.isInteger(maxWarnings) || maxWarnings < 0) {
-      throw new UsageError('--max-warnings takes a non-negative whole number.');
+  const limit = (flag: string, raw: string | undefined): number | undefined => {
+    if (raw === undefined) return undefined;
+    const value = Number(raw);
+    if (!Number.isInteger(value) || value < 0) {
+      throw new UsageError(`${flag} takes a non-negative whole number.`);
     }
-  }
+    return value;
+  };
+  const maxWarnings = limit('--max-warnings', values['max-warnings']);
+  const maxSuppressions = limit('--max-suppressions', values['max-suppressions']);
 
   const staged = values.staged === true;
   const commitMsg = values['commit-msg'];
@@ -212,6 +223,7 @@ export function parse(argv: string[], io: CliIo): Options | 'help' | 'version' {
         ['--commit-msg', commitMsg !== undefined],
         ['--format', format !== 'pretty'],
         ['--max-warnings', maxWarnings !== undefined],
+        ['--max-suppressions', maxSuppressions !== undefined],
         ['--quiet', values.quiet === true],
         ['--baseline-write', baselineWrite],
         ['--baseline-strict', baselineStrict],
@@ -233,6 +245,7 @@ export function parse(argv: string[], io: CliIo): Options | 'help' | 'version' {
     fix: values.fix === true,
     format: format as Format,
     ...(maxWarnings !== undefined ? { maxWarnings } : {}),
+    ...(maxSuppressions !== undefined ? { maxSuppressions } : {}),
     quiet: values.quiet === true,
     ...(baselineOn || baselineOff ? { baseline: baselineOn } : {}),
     baselineWrite,

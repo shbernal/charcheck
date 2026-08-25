@@ -223,6 +223,46 @@ describe('suppressions', () => {
     const text = `<!--charcheck-disable-next-line-->\nvalue ${EM_DASH}`;
     expect(await scanText(text, 'a.md', [emDashRule], { assumeText: true })).toEqual([]);
   });
+
+  it('hands a silenced finding to onSuppressed rather than returning it', async () => {
+    const text = `<!-- charcheck-disable-next-line -->\nvalue ${EM_DASH}`;
+    const suppressed: Finding[] = [];
+    const findings = await scanText(text, 'a.md', [emDashRule], {
+      assumeText: true,
+      onSuppressed: (finding) => suppressed.push(finding),
+    });
+    expect(findings).toEqual([]);
+    expect(suppressed).toHaveLength(1);
+    expect(suppressed[0]).toMatchObject({ ruleId: 'no-em-dash', line: 2, column: 7 });
+  });
+
+  it('resolves a fix on a suppressed finding, so it is a whole finding', async () => {
+    // It has to be, since the SARIF report emits it as a result beside the ones that were
+    // reported. A half-built finding there would be a shape no consumer could branch on.
+    const text = `<!-- charcheck-disable-next-line -->\nvalue ${EM_DASH}`;
+    const suppressed: Finding[] = [];
+    await scanText(text, 'a.md', [rule({ id: 'to-hyphen', fix: '-' })], {
+      assumeText: true,
+      onSuppressed: (finding) => suppressed.push(finding),
+    });
+    expect(suppressed[0]).toMatchObject({ fixable: true, replacement: '-' });
+  });
+
+  it('does not resolve a fix when nobody asked what was suppressed', async () => {
+    // The cheap path has to stay cheap: a fix is a function the config supplies, and a
+    // suppressed match must not be paying for one nobody will read.
+    let calls = 0;
+    const text = `<!-- charcheck-disable-next-line -->\nvalue ${EM_DASH}`;
+    const counted = rule({
+      id: 'counting',
+      fix: () => {
+        calls += 1;
+        return '-';
+      },
+    });
+    expect(await scanText(text, 'a.md', [counted], { assumeText: true })).toEqual([]);
+    expect(calls).toBe(0);
+  });
 });
 
 describe('fixes', () => {

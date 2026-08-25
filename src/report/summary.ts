@@ -5,6 +5,12 @@ export interface Summary {
   warnings: number;
   fixable: number;
   files: number;
+  /**
+   * How many findings a suppression marker silenced. They are not in `findings`, do not
+   * count towards anything above, and do not fail the run. The number is the whole point:
+   * without it a run that was told to say nothing is byte for byte a run that found nothing.
+   */
+  suppressed: number;
 }
 
 export interface ListOptions {
@@ -22,7 +28,10 @@ export function listed(findings: readonly Finding[], options: ListOptions): read
     : findings;
 }
 
-export function summarize(findings: readonly Finding[]): Summary {
+export function summarize(
+  findings: readonly Finding[],
+  suppressed: readonly Finding[] = [],
+): Summary {
   const files = new Set<string>();
   let errors = 0;
   let warnings = 0;
@@ -33,7 +42,7 @@ export function summarize(findings: readonly Finding[]): Summary {
     else warnings += 1;
     if (finding.fixable) fixable += 1;
   }
-  return { errors, warnings, fixable, files: files.size };
+  return { errors, warnings, fixable, files: files.size, suppressed: suppressed.length };
 }
 
 /** Findings grouped by file, in the order the files first appear. */

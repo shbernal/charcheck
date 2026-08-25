@@ -370,9 +370,17 @@ than usual: an unreviewed `exclude` glob is a hole in the check, and it grows as
 directory it names grows.
 
 ```bash
-npm view charcheck version    # what is published
-rg 'charcheck#'               # every stopgap here
+npm view charcheck version                          # what is published
+charcheck --format json | jq .summary.suppressed    # how many findings are silenced here
+rg 'charcheck#'                                     # every stopgap here
 ```
+
+The first two lines answer different halves of the question. `rg` finds the stopgaps
+somebody remembered to mark, and the count is charcheck's own answer for how many findings
+are going unreported, marked or not. A count that will not go down to zero once every marked
+stopgap is gone is an unmarked one, and that is the case section 6 exists to prevent and this
+line is how you catch it anyway. `--max-suppressions <n>` freezes the number in CI so it can
+only shrink. Both need charcheck 0.3.0 or newer; on an older pin `rg` is all there is.
 
 **A closed issue is not a released fix**, so check the published version and the
 [changelog](https://github.com/shbernal/charcheck/blob/main/CHANGELOG.md), never the issue

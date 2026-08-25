@@ -26,6 +26,32 @@ from disk.
 This is the entry point for testing your own rules, or for checking text that never becomes
 a file.
 
+## What a suppression marker silenced
+
+`scan` and `scanText` never return a finding a
+[suppression marker](configuration.md#suppressions) silenced. That is what makes them safe
+to fix from and to fail on, and it is also why a caller cannot tell a run that found nothing
+from one that was told to say nothing.
+
+Pass `onSuppressed` to be told:
+
+```ts
+const suppressed: Finding[] = [];
+const findings = await scan({
+  root: process.cwd(),
+  rules,
+  onSuppressed: (finding) => suppressed.push(finding),
+});
+```
+
+The findings handed over are whole ones, `replacement` included, and they are still absent
+from the returned array. Asking for them changes nothing else about the run.
+
+Two things worth knowing. The order is the order the files were read, which is concurrent,
+so sort if the order matters. And a caller that fixes to a fixpoint scans more than once and
+meets the same markers each time, so clear the collector before each pass rather than
+summing them.
+
 ## Positions
 
 Positions are 1-based and counted in UTF-16 code units, matching ESLint and the language
