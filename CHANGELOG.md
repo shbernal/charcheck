@@ -9,6 +9,30 @@ against every entry that does. A patch release does not.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A rule id written flush against a comment terminator no longer suppresses every rule on
+  the line.** A line marker naming one rule, closed immediately by `-->`, `*/`, `--}}` or
+  `#}`, parsed as naming no rules at all, and naming no rules means suppressing all of them.
+  So a marker written to silence one rule silenced every rule on that line, and the only
+  difference between the narrow form and the blanket one was a single space before the
+  closing delimiter. No rule id can end in `>`, `*`, `}` or `#`, so the terminator is now
+  stripped back off the id it was written against and the marker means what it says.
+
+  The direction of the failure is what made this worth a release. An unreadable id removed
+  checks rather than adding noise, and it did so silently, in the file its author was
+  editing at the time. Invisible characters are the class most likely to be lost that way,
+  being the class a reviewer cannot see is missing.
+
+- **A marker whose rule ids cannot be read now suppresses nothing rather than everything.**
+  Only a bare marker, one followed by nothing but whitespace and its own comment
+  terminator, still covers every rule. A stray character in an id, or a free-form reason
+  written where an id belongs, previously fell through to the blanket case.
+
+  This can make a file that was silently silenced start reporting again, which is the point:
+  the findings were never looked at, and a suppression nobody wrote on purpose is the one
+  worth surfacing. Nothing on the frozen public surface changed.
+
 ## [0.2.5]
 
 ### Fixed
