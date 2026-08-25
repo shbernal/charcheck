@@ -9,6 +9,52 @@ against every entry that does. A patch release does not.
 
 ## [Unreleased]
 
+### Added
+
+- **Every run now says how many findings a suppression marker silenced.** A suppressed
+  finding was discarded at the match site, before a finding object existed, so nothing
+  downstream could count it and no report mentioned it. A run in which every finding was
+  suppressed printed exactly what a run over a clean tree printed, in both output formats,
+  down to the byte. A suppression is the one hole a repository opens in its own check on
+  purpose, and it was the least visible thing in the output.
+
+  The count is on the pretty summary line when there are findings beside it, and on its own
+  line when there are not:
+
+  ```
+  1 error, 0 warnings, 2 suppressed in 1 file
+  ```
+
+  ```
+  No banned characters found.
+  2 findings suppressed by a marker.
+  ```
+
+  A repository with no markers sees nothing new. The findings themselves are not listed: a
+  deliberate, reviewed silence re-printed on every run is how a team learns to stop reading
+  the last line.
+
+- **`summary.suppressed` in the JSON report**, so CI can assert on it. Additive, so
+  `schemaVersion` stays at 1.
+
+- **SARIF emits each suppressed finding as a result** carrying
+  `"suppressions": [{ "kind": "inSource" }]`. SARIF has a first-class mechanism for exactly
+  this, so a viewer already knows to fold one away and code scanning does not raise an alert
+  for it. It is the one format where the finding rather than a tally is the right thing to
+  carry, because the reader can hide it and a count cannot be un-summarized.
+
+- **`--max-suppressions <n>`**, which fails the run once the count passes `n`, in the same
+  shape as `--max-warnings` and reported on stderr the same way. It makes the holes a ratchet
+  rather than a number to watch.
+
+- **`onSuppressed` on `ScanOptions` and `ScanTextOptions`**, called with each silenced
+  finding. **This changes `ScanOptions`, which the project treats as a break, so it lands in
+  a minor.** No existing caller has to change: the option is optional, a suppressed finding
+  is still never in the returned array, and the finding is only built when the option is
+  given. Keeping them out of the array is deliberate rather than incidental, since `--fix`
+  must not rewrite text a marker exists to leave alone and no exit code may fail on a silence
+  somebody wrote on purpose.
+
 ### Fixed
 
 - **A rule id written flush against a comment terminator no longer suppresses every rule on
