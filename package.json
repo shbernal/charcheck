@@ -92,11 +92,11 @@
     "@types/node": "^26.2.0",
     "@vue/compiler-sfc": "^3.5.24",
     "micromark": "^4.0.2",
-    "oxfmt": "^0.63.0",
-    "oxlint": "^1.78.0",
+    "oxfmt": "^0.65.0",
+    "oxlint": "^1.80.0",
     "parse5": "^8.0.1",
     "typescript": "^6.0.3",
     "typescript-next": "npm:typescript@7.0.2",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   }
 }
