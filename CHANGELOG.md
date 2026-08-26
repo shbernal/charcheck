@@ -9,6 +9,48 @@ against every entry that does. A patch release does not.
 
 ## [Unreleased]
 
+### Added
+
+- **A `comments` scope**, reading the line and block comments of a `.ts`, `.tsx`, `.mts`,
+  `.cts`, `.js`, `.jsx`, `.mjs` or `.cjs` file and nothing else. It is the complement of
+  `strings` over the same files, and the two together are every word a person wrote in a
+  source file and no code at all.
+
+  That set was previously inexpressible. A rule about the quality of authored prose had to
+  point `raw` at the source globs, which reads the comments and also every identifier,
+  keyword, import specifier, regular expression and encoded blob in the file. For a dash rule
+  the extra reach rarely shows. For a rule banning invisible characters it decides the
+  answer, because a zero width character inside an encoded blob is a different finding from
+  one inside a sentence somebody wrote.
+
+  ```js
+  rules: [
+    { id: 'prose-in-comments', chars: ['\u2014'], scope: 'comments', include: ['src/**/*.ts'] },
+    { id: 'prose-in-literals', chars: ['\u2014'], scope: 'strings', include: ['src/**/*.ts'] },
+  ];
+  ```
+
+  The delimiters are part of the comment: the `//`, the `/*` and its closing pair, and a doc
+  comment's leading star on each line are all inside the region. So a finding's column is
+  where `raw` would have put it, and a rule reads a suppression marker and the reason beside
+  it exactly as it does under `raw`. A fix sees the enclosing sentence, again as under `raw`.
+
+  Comments come from the parser rather than from a search for `//`, so the `//` in
+  `"http://x"` and a slash inside a regular expression are not comment openers. It needs the
+  `typescript` peer, like `strings`, and it reads both of that peer's shapes: the syntax tree
+  on TypeScript 5 and 6, the token scanner on 7. Both readers are held to producing identical
+  ranges over the test corpus. `.tsx` and `.jsx` are refused on TypeScript 7 for the reason
+  `strings` refuses them.
+
+  See [Scopes](docs/scopes.md).
+
+### Changed
+
+- **`Scope` gains a member, which is a breaking change to an exported type, so this goes out
+  in a minor.** A `switch` over `Scope` with no default, or a `Record<Scope, T>`, no longer
+  compiles until it accounts for `comments`. Nothing that consumes a `Scope` value is
+  affected, and no existing config changes meaning.
+
 ## [0.3.0]
 
 ### Added
