@@ -48,11 +48,21 @@ export default {
       ],
     },
     {
-      // Only text that can reach a reader. Comments in this repo are allowed dashes, and
-      // this rule proves the scope does what the README claims.
+      // Only text that can reach a reader, which is what separates this from the comment
+      // rule below. It also proves the scope does what the README claims.
       id: 'no-em-dash-in-rendered-text',
       chars: DASHES,
       scope: 'strings',
+      message: 'Use a comma, a colon, or reword.',
+      include: ['src/**/*.ts'],
+    },
+    {
+      // The complement of the rule above, over the same files: together they cover every
+      // word a person wrote in this repository's source and nothing a machine reads. It is
+      // also what proves the scope reads a comment without reading the code around it.
+      id: 'no-em-dash-in-comments',
+      chars: DASHES,
+      scope: 'comments',
       message: 'Use a comma, a colon, or reword.',
       include: ['src/**/*.ts'],
     },

@@ -1,11 +1,10 @@
 /**
- * String and template literal ranges read from TypeScript's *scanner* rather than its
- * syntax tree.
+ * Literal and comment ranges read from TypeScript's *scanner* rather than its syntax tree.
  *
  * This exists for TypeScript 7, which no longer ships a parser that can be run in process:
  * `createSourceFile` moved out of the package and what is left is a token scanner. A
- * scanner is enough for this job, because every character this tool bans lives inside a
- * literal token, and a token is exactly what a scanner hands back.
+ * scanner is enough for both jobs: a literal is a token, and a comment is the trivia
+ * between two of them.
  *
  * What a scanner does not have is the parser's context, and two decisions need it:
  *
@@ -166,26 +165,38 @@ function endsHeader(kinds: TokenKinds): Set<number> {
   return new Set([kinds.SemicolonToken, kinds.ColonToken, kinds.CommaToken]);
 }
 
+/** What a walk hands back. Every offset is absolute, and both are called in source order. */
+export interface TokenCollector {
+  /** One token, after any re-scan, so a regular expression arrives whole. */
+  token?: (kind: number, start: number, end: number) => void;
+  /**
+   * The trivia between the previous token and this one, whenever it is not empty.
+   *
+   * The walk runs with trivia skipped, so a comment is never a token here. It is the gap
+   * between two of them, and reading it out that way rather than turning trivia on is what
+   * keeps the state below untouched: a comment scanned as a token would have to be kept out
+   * of `previous` and `regexAllowed` by hand, and the `/` after a comment would otherwise be
+   * decided by the comment rather than by the code before it.
+   */
+  trivia?: (start: number, end: number) => void;
+}
+
 /**
- * Every string and template literal range in `source`, in source order, as absolute offsets.
+ * The token walk, driving `collect` over one piece of source.
  *
  * `scanner` must already be positioned at the start of `source` with trivia skipped.
  */
-export function literalRanges(scanner: TokenScanner, kinds: TokenKinds): Range[] {
-  const literal = new Set([
-    kinds.StringLiteral,
-    kinds.NoSubstitutionTemplateLiteral,
-    kinds.TemplateHead,
-    kinds.TemplateMiddle,
-    kinds.TemplateTail,
-  ]);
+export function walkTokens(
+  scanner: TokenScanner,
+  kinds: TokenKinds,
+  collect: TokenCollector,
+): void {
   const expressionEnders = endsExpression(kinds);
   const heads = clauseHeads(kinds);
   const blockOpeners = opensBlock(kinds);
   const bodyKeywords = opensBody(kinds);
   const headerEnders = endsHeader(kinds);
 
-  const ranges: Range[] = [];
   /** For each open `(`, whether it is a clause header. */
   const parens: boolean[] = [];
   /** For each open `{`, whether it opens a block. */
@@ -199,8 +210,16 @@ export function literalRanges(scanner: TokenScanner, kinds: TokenKinds): Range[]
   /** Whether a declaration keyword is still waiting for the `{` that opens its body. */
   let inHeader = false;
 
+  /** The end of the last token, so the gap before the next one is the trivia between them. */
+  let scanned = 0;
+
   for (;;) {
     let token = scanner.scan();
+    const start = scanner.getTokenStart();
+    if (start > scanned) collect.trivia?.(scanned, start);
+    // Set here as well as at the foot of the loop, because the paths that `continue` never
+    // reach the foot. Neither of them re-scans, so the end read here is the final one.
+    scanned = scanner.getTokenEnd();
     if (token === kinds.EndOfFileToken) break;
 
     if (token === kinds.SlashToken || token === kinds.SlashEqualsToken) {
@@ -235,13 +254,7 @@ export function literalRanges(scanner: TokenScanner, kinds: TokenKinds): Range[]
       }
     }
 
-    if (literal.has(token)) {
-      const start = scanner.getTokenStart();
-      const end = scanner.getTokenEnd();
-      // Malformed source yields empty literals, and the two readers disagree about how
-      // many. None of them can hold a banned character, so neither reader reports one.
-      if (end > start) ranges.push({ start, end });
-    }
+    collect.token?.(token, scanner.getTokenStart(), scanner.getTokenEnd());
     if (token === kinds.TemplateHead || token === kinds.TemplateMiddle)
       templates.push(braces.length);
 
@@ -250,7 +263,92 @@ export function literalRanges(scanner: TokenScanner, kinds: TokenKinds): Range[]
 
     regexAllowed = !expressionEnders.has(token);
     previous = token;
+    // Again, because a re-scan above moved the end: the `/` of a regular expression and the
+    // `}` that closes a `${…}` are both read a second time as a longer token.
+    scanned = scanner.getTokenEnd();
   }
+}
 
+/**
+ * Every string and template literal range in `source`, in source order, as absolute offsets.
+ */
+export function literalRanges(scanner: TokenScanner, kinds: TokenKinds): Range[] {
+  const literal = new Set([
+    kinds.StringLiteral,
+    kinds.NoSubstitutionTemplateLiteral,
+    kinds.TemplateHead,
+    kinds.TemplateMiddle,
+    kinds.TemplateTail,
+  ]);
+
+  const ranges: Range[] = [];
+  walkTokens(scanner, kinds, {
+    token: (kind, start, end) => {
+      // Malformed source yields empty literals, and the two readers disagree about how
+      // many. None of them can hold a banned character, so neither reader reports one.
+      if (literal.has(kind) && end > start) ranges.push({ start, end });
+    },
+  });
   return ranges;
+}
+
+/**
+ * Every comment range in `source`, in source order, as absolute offsets, delimiters
+ * included.
+ *
+ * The comments are read out of the trivia between tokens rather than by searching the text,
+ * which is the whole reason this goes through the scanner: the `//` of `"http://x"` and a
+ * `/` inside a regular expression are not comment openers, and the walk above has already
+ * decided both. What is left in a gap is trivia by construction, so recognizing a comment in
+ * it needs no lexer of its own.
+ */
+export function commentRanges(scanner: TokenScanner, kinds: TokenKinds, source: string): Range[] {
+  const ranges: Range[] = [];
+  walkTokens(scanner, kinds, {
+    trivia: (start, end) => collectComments(source, start, end, ranges),
+  });
+  return ranges;
+}
+
+/** A line comment ends at the line break, and `\r` is one of them. */
+function lineEnd(source: string, from: number, limit: number): number {
+  for (let at = from; at < limit; at += 1) {
+    const code = source.charCodeAt(at);
+    if (code === 0x0a || code === 0x0d) return at;
+  }
+  return limit;
+}
+
+function collectComments(source: string, start: number, end: number, out: Range[]): void {
+  let at = start;
+
+  // A shebang is not a comment, and it is trivia only on the first line of a file.
+  // TypeScript's own reader passes over the whole line rather than the `#!`, so anything
+  // written after it on that line is part of the shebang too and is passed over here as well.
+  if (at === 0 && source.startsWith('#!')) at = Math.min(lineEnd(source, 0, end), end);
+
+  while (at < end) {
+    if (source.charCodeAt(at) !== 0x2f) {
+      // Whitespace, or in a file with a merge conflict in it, a conflict marker. Neither is
+      // a comment and neither can hide one, so step over it rather than giving up on the
+      // rest of the gap.
+      at += 1;
+      continue;
+    }
+    const next = source.charCodeAt(at + 1);
+    if (next === 0x2f) {
+      const stop = lineEnd(source, at + 2, end);
+      out.push({ start: at, end: stop });
+      at = stop;
+    } else if (next === 0x2a) {
+      // An unterminated block comment runs to the end of the file, which is where the gap
+      // ends too, so the clamp is the whole of the handling it needs.
+      const close = source.indexOf('*/', at + 2);
+      const stop = close === -1 || close + 2 > end ? end : close + 2;
+      out.push({ start: at, end: stop });
+      at = stop;
+    } else {
+      at += 1;
+    }
+  }
 }

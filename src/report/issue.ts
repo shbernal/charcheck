@@ -25,6 +25,7 @@ import { createGlobAnonymizer } from './anonymize.js';
 const SCOPE_PEERS: Record<Scope, readonly string[]> = {
   raw: [],
   strings: ['typescript'],
+  comments: ['typescript'],
   markup: ['typescript', '@vue/compiler-sfc'],
   markdown: ['micromark'],
   html: ['parse5'],

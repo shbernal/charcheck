@@ -1,4 +1,5 @@
 import type { Extractor, Scope } from '../types.js';
+import { COMMENTS_EXTENSIONS, commentsExtractor } from './comments.js';
 import { matchesExtension } from './extensions.js';
 import { HTML_EXTENSIONS, htmlExtractor } from './html.js';
 import { MARKDOWN_EXTENSIONS, markdownExtractor } from './markdown.js';
@@ -20,6 +21,7 @@ export { DEFAULT_TEXT_ATTRIBUTES } from './text-attributes.js';
 const EXTRACTORS: Record<Scope, Extractor> = {
   raw: rawExtractor,
   strings: stringsExtractor,
+  comments: commentsExtractor,
   markup: markupExtractor,
   markdown: markdownExtractor,
   html: htmlExtractor,
@@ -47,6 +49,7 @@ export const SCOPES = Object.keys(EXTRACTORS) as Scope[];
  */
 export const SCOPE_EXTENSIONS: Partial<Record<Scope, readonly string[]>> = {
   strings: STRINGS_EXTENSIONS,
+  comments: COMMENTS_EXTENSIONS,
   markup: MARKUP_EXTENSIONS,
   markdown: MARKDOWN_EXTENSIONS,
   html: HTML_EXTENSIONS,

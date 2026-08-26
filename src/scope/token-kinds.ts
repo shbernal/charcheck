@@ -1,10 +1,11 @@
 /**
- * The token kinds `literalRanges` names, resolved out of a `SyntaxKind` enum at load time.
+ * The token kinds the walk in `token-scan.ts` names, resolved out of a `SyntaxKind` enum at
+ * load time.
  *
  * Resolved rather than hardcoded for two reasons, both measured against TypeScript 7 rather
  * than guessed at: the numeric values are entirely different between majors, and at least
  * one name changed (`EndOfFileToken` became `EndOfFile`). A missing name is therefore a
- * real possibility on a future release, and it must not be allowed to read as `undefined` —
+ * real possibility on a future release, and it must not be allowed to read as `undefined`:
  * a walk comparing tokens against `undefined` finds nothing, and finding nothing is exactly
  * what a passing scan looks like.
  */

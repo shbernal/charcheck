@@ -21,6 +21,10 @@
  * This is a heuristic and is only ever read by a fix, never used to place a finding. An
  * abbreviation ends a sentence early; the cost is a comma where a colon would have read
  * better, in a diff the tool already tells you to read.
+ *
+ * The dashes quoted above are this file's subject rather than prose of its own, so the
+ * comment rule is switched off here rather than reworded around.
+ * charcheck-disable-file no-em-dash-in-comments
  */
 
 import { floorIndex } from './search.js';

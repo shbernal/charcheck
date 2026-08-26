@@ -1,6 +1,7 @@
 /**
- * TypeScript 7 moved the parser out of the package and left a scanner, so this scope reads
- * it a second way. The test drives the real thing: `typescript-next` is an alias for
+ * TypeScript 7 moved the parser out of the package and left a scanner, so the two scopes
+ * that read a script file, `strings` and `comments`, each read it a second way. The test
+ * drives the real thing: `typescript-next` is an alias for
  * TypeScript 7 in this repo's devDependencies, installed alongside the TypeScript 5 the
  * rest of the suite uses, so both readers are exercised against the compilers they are for.
  *
@@ -15,6 +16,7 @@ import { describe, expect, it } from 'vitest';
 
 import { EM_DASH } from '../src/chars.js';
 import { scanText } from '../src/scan.js';
+import { astCommentReader, scannerCommentReader } from '../src/scope/comments.js';
 import { JsxUnsupportedError } from '../src/scope/missing-peer.js';
 import { astReader, scannerReader, type ScriptLanguage } from '../src/scope/strings.js';
 import { resolveTokenKinds, UnknownTokenKindError } from '../src/scope/token-kinds.js';
@@ -30,20 +32,33 @@ const ts7 = (await import('typescript-next/unstable/ast' as string)) as {
 };
 const ts7version = ((await import('typescript-next' as string)) as { version: string }).version;
 
+/** Real code, at a scale no hand-written case reaches. See the corpus describe below. */
+const PACKAGES = ['typescript', '@vue/compiler-sfc', 'tinyglobby', 'picocolors'];
+
 const fromAst = astReader(ts5);
 const fromScanner = scannerReader(ts7 as Parameters<typeof scannerReader>[0]);
+const commentsFromAst = astCommentReader(ts5);
+const commentsFromScanner = scannerCommentReader(ts7 as Parameters<typeof scannerReader>[0]);
 
 const read = (
   reader: ReturnType<typeof astReader>,
   source: string,
   language: ScriptLanguage = 'ts',
+  scope = 'strings',
 ): string[] =>
-  reader(source, language, 'a.ts', 'strings').map(({ start, end }) => source.slice(start, end));
+  reader(source, language, 'a.ts', scope).map(({ start, end }) => source.slice(start, end));
 
 /** Both readers, over the same source, must produce the same slices. */
 function agree(source: string, language: ScriptLanguage = 'ts'): string[] {
   const viaAst = read(fromAst, source, language);
   expect(read(fromScanner, source, language)).toEqual(viaAst);
+  return viaAst;
+}
+
+/** The same property for the `comments` scope, whose two readers share nothing but this. */
+function agreeOnComments(source: string, language: ScriptLanguage = 'ts'): string[] {
+  const viaAst = read(commentsFromAst, source, language, 'comments');
+  expect(read(commentsFromScanner, source, language, 'comments')).toEqual(viaAst);
   return viaAst;
 }
 
@@ -233,9 +248,8 @@ describe('the scanner reader, against the syntax tree reader', () => {
  */
 describe('the scanner reader, against the syntax tree reader, over real packages', () => {
   const require = createRequire(import.meta.url);
-  const packages = ['typescript', '@vue/compiler-sfc', 'tinyglobby', 'picocolors'];
 
-  for (const name of packages) {
+  for (const name of PACKAGES) {
     // Parsing the compiler's nine megabytes twice takes seconds on its own, and the suite
     // runs its files in parallel, so the default five is a budget this sits right on the
     // edge of: it passes alone and times out under load. The work is genuinely long rather
@@ -248,6 +262,123 @@ describe('the scanner reader, against the syntax tree reader, over real packages
       // literals, and a failed slice comparison prints all of them.
       expect(viaAst.length).toBeGreaterThan(50);
       expect(fromScanner(source, 'js', file, 'strings')).toEqual(viaAst);
+    }, 30_000);
+  }
+});
+
+/**
+ * The `comments` scope, which reaches the same two majors by two entirely different routes:
+ * a comment is trivia rather than a node, so the syntax tree reader asks TypeScript what is
+ * in the gap in front of each token, and the scanner reader reads the gap itself.
+ *
+ * Shared nothing means the agreement here is worth more than it is above, not less: a
+ * mistake in either route has nothing holding it up.
+ */
+describe('the comment readers, against each other', () => {
+  it('find line, block and doc comments alike, delimiters included', () => {
+    expect(agreeOnComments('// line\n/* block */\n/** doc */\nconst s = "kept";')).toEqual([
+      '// line',
+      '/* block */',
+      '/** doc */',
+    ]);
+  });
+
+  it('find a comment trailing code on the same line', () => {
+    expect(agreeOnComments('const a = 1; // trailing')).toEqual(['// trailing']);
+  });
+
+  it('find a comment that is the whole of a block', () => {
+    expect(agreeOnComments('function f() {\n  // only\n}')).toEqual(['// only']);
+  });
+
+  it('find a comment inside a template substitution and not the template text', () => {
+    expect(agreeOnComments('const t = `a // b ${/* real */ x} c`;')).toEqual(['/* real */']);
+  });
+
+  it('read neither string literals nor template text', () => {
+    expect(agreeOnComments('const s = "http://x"; const t = `/* x */`; // kept')).toEqual([
+      '// kept',
+    ]);
+  });
+
+  it('pass over a shebang, which is trivia but not a comment', () => {
+    expect(agreeOnComments('#!/usr/bin/env node\n// kept')).toEqual(['// kept']);
+  });
+
+  it('end a line comment before the carriage return of a crlf ending', () => {
+    expect(agreeOnComments('// note\r\nconst s = "kept";')).toEqual(['// note']);
+  });
+
+  it('run an unterminated block comment to the end of the file', () => {
+    expect(agreeOnComments('const a = 1;\n/* never closed')).toEqual(['/* never closed']);
+  });
+
+  it('do not nest, so the first closing pair ends the comment', () => {
+    expect(agreeOnComments('/* a /* b */ const s = "kept";')).toEqual(['/* a /* b */']);
+  });
+
+  // The same ambiguity the literal walk resolves, reached from the other side: a `/` read
+  // as division leaves the rest of a regular expression tokenized as code, and the `//`
+  // inside one would open a comment that swallows the line.
+  describe('regular expressions against division', () => {
+    it('with escaped slashes in the pattern', () => {
+      expect(agreeOnComments(String.raw`const r = /a\/\/b/; // kept`)).toEqual(['// kept']);
+    });
+
+    it('after the parenthesis of a call, which divides', () => {
+      expect(agreeOnComments('const n = (a + b) / c; // kept')).toEqual(['// kept']);
+    });
+
+    it('after an exclamation mark that asserts non-null', () => {
+      expect(agreeOnComments('const n = a! / 2; // kept')).toEqual(['// kept']);
+    });
+
+    it('after the brace of a declaration body', () => {
+      expect(agreeOnComments('class C {}\n/["\']/.test(y); // kept')).toEqual(['// kept']);
+    });
+  });
+
+  describe('source that does not parse', () => {
+    const broken = [
+      ['an unterminated string', 'const a = "oops\n// kept'],
+      ['an unterminated template', 'const a = `oops ${ x\n// kept'],
+      ['a stray closing brace', 'const a = 1; }\n// kept'],
+      ['a stray opening paren', 'f( ; // kept'],
+      ['a lone operator', 'const a = ; // kept'],
+    ] as const;
+
+    for (const [name, source] of broken) {
+      it(name, () => {
+        expect(agreeOnComments(source)).toEqual(['// kept']);
+      });
+    }
+  });
+
+  it('agrees on every source file in this repository', () => {
+    const files = [...walk('src'), ...walk('tests')];
+    expect(files.length).toBeGreaterThan(20);
+    for (const file of files) {
+      const source = readFileSync(file, 'utf8');
+      expect(read(commentsFromScanner, source, 'ts', 'comments'), file).toEqual(
+        read(commentsFromAst, source, 'ts', 'comments'),
+      );
+    }
+  });
+
+  // The breadth argument from the literal corpus applies unchanged, and one thing more: a
+  // comment is decided by the token boundaries around it, so every ambiguity the walk gets
+  // wrong shows up here as a comment invented or a comment lost.
+  for (const name of PACKAGES) {
+    it(`agrees on ${name}`, () => {
+      const require = createRequire(import.meta.url);
+      const file = require.resolve(name);
+      const source = readFileSync(file, 'utf8');
+      const viaAst = commentsFromAst(source, 'js', file, 'comments');
+      expect(commentsFromScanner(source, 'js', file, 'comments')).toEqual(viaAst);
+      // A package that ships built carries almost no comments, and that is worth running
+      // too: a walk that invented one would be caught right here. The volume comes from the
+      // compiler, which is the file in this list that is still readable source.
+      if (name === 'typescript') expect(viaAst.length).toBeGreaterThan(1000);
     }, 30_000);
   }
 });
@@ -273,6 +404,19 @@ describe('jsx, which a scanner cannot be told it is inside', () => {
 
   it('is still read by the syntax tree reader, which has the context', () => {
     expect(read(fromAst, `const a = <p>don't</p>; const s = "kept";`, 'tsx')).toEqual([`"kept"`]);
+  });
+
+  it('is refused by the comment reader for the same reason', () => {
+    expect(() => read(commentsFromScanner, `const a = <p>don't</p>;`, 'tsx', 'comments')).toThrow(
+      JsxUnsupportedError,
+    );
+  });
+
+  // JSX text carries no trivia, so what sits in front of it is its own prose. Asking
+  // TypeScript what is in that gap would report the text a page renders as a comment.
+  it('does not turn jsx text into a comment on the syntax tree reader', () => {
+    const source = `const a = <p>// not a comment{/* kept */}</p>; // tail`;
+    expect(read(commentsFromAst, source, 'tsx', 'comments')).toEqual(['/* kept */', '// tail']);
   });
 });
 

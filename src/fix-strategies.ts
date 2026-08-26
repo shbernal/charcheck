@@ -1,3 +1,13 @@
+/**
+ * The fix strategies, which decide what a banned dash becomes from the text around it.
+ *
+ * Every explanation below quotes the punctuation it is about, so the dashes in this file's
+ * comments are its subject rather than prose of its own. The comment rule is switched off
+ * for the file instead of for each line that quotes one, which would break the sentences
+ * doing the explaining.
+ * charcheck-disable-file no-em-dash-in-comments
+ */
+
 import { EM_DASH, HORIZONTAL_BAR, charClass } from './chars.js';
 import type { FixContext, FixFunction } from './types.js';
 
