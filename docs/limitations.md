@@ -60,16 +60,18 @@ block.
 ## TypeScript 7
 
 TypeScript 5, 6 and 7 are all supported, but 7 ships no in-process parser, so on that
-version the `strings` and `markup` scopes read literals from a token scanner instead of a
+version the `strings`, `comments` and `markup` scopes read a token scanner instead of a
 syntax tree. Three consequences.
 
 ### `.tsx` and `.jsx` are refused on TypeScript 7
 
-With an error naming the file. A scanner cannot be told it is inside a JSX element, and the
-apostrophe in `<p>don't stop</p>` would open a string literal running to the next quote in
-the file. See [Scopes](scopes.md). The refused file is named on stderr and the run exits 2:
-it was not looked at, which is not the same answer as finding nothing in it. Every other
-file is still scanned and reported.
+Under `strings` and `comments` alike, with an error naming the file. A scanner cannot be
+told it is inside a JSX element, and the apostrophe in `<p>don't stop</p>` would open a
+string literal running to the next quote in the file. Every token boundary after that one is
+wrong, and a comment is a gap between two token boundaries. See [Scopes](scopes.md).
+
+The refused file is named on stderr and the run exits 2: it was not looked at, which is not
+the same answer as finding nothing in it. Every other file is still scanned and reported.
 
 ### The scanner reads an unstable module
 
@@ -156,8 +158,9 @@ describes the globs, not the commit.
 
 ### The scope cannot see that region
 
-A rule with `scope: 'strings'` cannot see a comment, `markdown` skips fenced code and
-inline spans, and neither `markup` nor `html` reads `<style>`. The scope is the first thing
+A rule with `scope: 'strings'` cannot see a comment, `comments` cannot see anything else,
+`markdown` skips fenced code and inline spans, and neither `markup` nor `html` reads
+`<style>`. The scope is the first thing
 to check once you know the file was opened. See [Scopes](scopes.md).
 
 A file the scope cannot read at all is the sharper version of this: it is extracted as empty,

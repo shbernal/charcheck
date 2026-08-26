@@ -52,12 +52,13 @@ may match inside, and text outside it is not a miss, it is the contract:
 | --------------- | ---------------------------------------------------- | ----------------------------------------------------------- |
 | `raw` (default) | The whole file                                       | Nothing is out of reach                                     |
 | `strings`       | String and template literals                         | Comments, identifiers, JSX text                             |
+| `comments`      | Line and block comments, delimiters included         | Literals, identifiers, JSX text                             |
 | `markup`        | Template text, allowlisted attributes, script blocks | `<style>`, custom blocks, `v-html`                          |
 | `markdown`      | Prose                                                | Fenced and inline code, link targets, HTML blocks           |
 | `html`          | Page text, allowlisted attributes, script literals   | `<style>`, comments, `<code>`, `<pre>`, unlisted attributes |
 
-The two that catch people: a `strings` rule cannot see a comment, and a `markdown` rule
-cannot see a fenced block. See
+The two that catch people: a `strings` rule cannot see a comment, which is what `comments`
+is for, and a `markdown` rule cannot see a fenced block. See
 [The scope cannot see that region](https://github.com/shbernal/charcheck/blob/main/docs/limitations.md#the-scope-cannot-see-that-region).
 
 **Step 3: is it already a stated limitation?**
@@ -173,9 +174,10 @@ Never add a real file path, a finding, or the flagged text back into the report 
 
 `--report-issue` shipped in 0.2.2. On an older pin, collect the same facts by hand:
 `charcheck --version`, `node -v`, the operating system, and the versions of whichever peers
-the rule needs (`typescript` for `strings` and `markup`, `@vue/compiler-sfc` for `markup`,
-`micromark` for `markdown`, `parse5` for `html`). Then, per rule, its `scope`, its `chars`,
-its `include` and `exclude`, whether it carries a `fix`, and how many files it matched.
+the rule needs (`typescript` for `strings`, `comments` and `markup`, `@vue/compiler-sfc` for
+`markup`, `micromark` for `markdown`, `parse5` for `html`). Then, per rule, its `scope`, its
+`chars`, its `include` and `exclude`, whether it carries a `fix`, and how many files it
+matched.
 
 Do the rename yourself, by the same rule: **rename the directory segments in every pattern,
 and keep everything else exactly as written.** One worked example carries it:

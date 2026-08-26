@@ -7,6 +7,7 @@ fails silently, because a scan that reads nothing looks exactly like a scan that
 | --------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- | ------------------------------------------------------------ | ---------------------------------- |
 | `raw` (default) | The whole file                                                                             | Nothing                                                                           | Any file                                                     | Nothing                            |
 | `strings`       | String and template literals                                                               | Comments, identifiers, all other code                                             | `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs` | `typescript`                       |
+| `comments`      | Line and block comments, delimiters included                                               | Literals, identifiers, all other code                                             | `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs` | `typescript`                       |
 | `markup`        | Template text, interpolated literals, allowlisted attribute values, and both script blocks | HTML comments, `<style>`, custom blocks, non-allowlisted attributes               | `.vue`                                                       | `@vue/compiler-sfc`, `typescript`* |
 | `markdown`      | Prose: paragraphs, headings, list items, quotes, link text, titles, alt text, frontmatter  | Fenced and indented code, inline code spans, link targets, autolinks, HTML blocks | `.md`, `.markdown`                                           | `micromark`                        |
 | `html`          | Element text, allowlisted attribute values, and the literals in a script                   | Comments, `<style>`, `<code>`, `<pre>`, non-allowlisted attributes, JSON scripts  | `.html`, `.htm`                                              | `parse5`, `typescript`\*           |
@@ -85,15 +86,17 @@ are not read the same way, and the difference is worth knowing about because one
 carries a restriction.
 
 TypeScript 5 and 6 are read through the syntax tree: `createSourceFile`, then a walk
-collecting literal nodes. TypeScript 7 is the native compiler and ships no in-process
-parser, only a token scanner under `typescript/unstable/ast`, so on that version the
-literals are read from the token stream instead. Which reader is used is decided by testing
-the installed package for the API, never by its version number, so a later major that keeps
-one of them keeps working with no release here.
+collecting literal nodes, and under `comments` a walk asking TypeScript what trivia sits in
+front of each token. TypeScript 7 is the native compiler and ships no in-process parser,
+only a token scanner under `typescript/unstable/ast`, so on that version the literals are
+read from the token stream and the comments from the gaps between the tokens. Which reader
+is used is decided by testing the installed package for the API, never by its version
+number, so a later major that keeps one of them keeps working with no release here.
 
-The two readers are held to agreeing: the test suite installs both majors and requires
-identical results from them over a corpus of pathological sources and every file in this
-repository. The one place they cannot agree is JSX, described below.
+Both pairs of readers are held to agreeing: the test suite installs both majors and requires
+identical results from them over a corpus of pathological sources, every file in this
+repository, and the TypeScript compiler's own nine megabytes. The one place they cannot
+agree is JSX, described below.
 
 A `typescript` that offers neither API throws `UnsupportedPeerDependencyError`, naming the
 installed version, and only the rules that actually need a parser are affected. When that
@@ -103,8 +106,8 @@ downgrade.
 
 ### JSX on TypeScript 7
 
-`.tsx` and `.jsx` are refused on TypeScript 7, with an error naming the file. They are read
-normally on 5 and 6.
+`.tsx` and `.jsx` are refused on TypeScript 7 under `strings` and `comments` alike, with an
+error naming the file. They are read normally on 5 and 6.
 
 A scanner has no way to know it is inside a JSX element, and that is not a detail: read as
 ordinary code, the apostrophe in `<p>don't stop</p>` opens a string literal that runs to the
@@ -119,7 +122,47 @@ attribute names and every other part of the syntax tree are invisible to it.
 
 This is the scope for source files whose text reaches a user. The point of excluding
 comments is that a dash in a comment is a note to another developer, while a dash in a
-literal may well be rendered on a page.
+literal may well be rendered on a page. A rule about the comment itself wants `comments`,
+below.
+
+## `comments`
+
+Line comments and block comments, doc comments included, over the same files `strings`
+reads. Literals, identifiers and every other token are invisible to it.
+
+It is the complement of `strings`, and the two exist for opposite audiences. A rule whose
+subject is rendered output wants `strings`. A rule whose subject is the quality of prose
+somebody wrote wants this one, because in a source file the comment is where that prose
+lives. Run both to cover every word a person wrote in a file and no code at all:
+
+```js
+rules: [
+  { id: 'prose-in-comments', chars: ['\u2014'], scope: 'comments', include: ['src/**/*.ts'] },
+  { id: 'prose-in-literals', chars: ['\u2014'], scope: 'strings', include: ['src/**/*.ts'] },
+];
+```
+
+`raw` covers that union too, and also every identifier, import specifier, regular expression
+and encoded blob in the file. For a dash rule the difference rarely shows, since none of
+those tends to hold one. For a rule banning invisible characters it decides the answer: a
+zero width character inside an encoded blob is a different finding from one inside a
+sentence somebody wrote, and `raw` cannot tell them apart.
+
+**The delimiters are part of the comment.** The `//`, the `/*` and its closing pair, and a
+doc comment's leading star on each line are all inside the region. So a finding's column is
+where `raw` would have put it, and a rule reads a suppression marker and the reason written
+beside it exactly as it does under `raw`.
+
+Comments are found by the parser, never by searching for `//`. The `//` in `"http://x"` and
+a slash inside a regular expression are not comment openers, and only a lexer knows it.
+
+A fix sees the enclosing **sentence**, the unit `raw` gives over the same text, because
+comment prose is hard-wrapped like any other and a run of `//` lines is a separate comment
+per line.
+
+This covers the extensions in the table and no others. A repository with prose in a
+PowerShell header comment, or in a `"//"` key in a `tsconfig.json`, still needs `raw` for
+those, so this is a precise instrument rather than a general answer.
 
 ## `markup`
 

@@ -102,6 +102,7 @@ silently, because a scan that reads nothing looks exactly like a scan that passe
 | --------------- | ------------------------------------------------------ | ---------------------- | --------------------------------- |
 | `raw` (default) | The whole file                                         | Any file               | Nothing                           |
 | `strings`       | String and template literals, never comments           | JavaScript, TypeScript | `typescript`                      |
+| `comments`      | Line and block comments, never literals or code        | JavaScript, TypeScript | `typescript`                      |
 | `markup`        | Template text, allowlisted attributes, script blocks   | `.vue`                 | `@vue/compiler-sfc`, `typescript` |
 | `markdown`      | Prose, never fenced or inline code, never link targets | `.md`, `.markdown`     | `micromark`                       |
 | `html`          | Page text, allowlisted attributes, script literals     | `.html`, `.htm`        | `parse5`, `typescript`            |
