@@ -86,8 +86,8 @@ longer matches anything is dropped from the file, so the fix does not leave a no
 every future run to report:
 
 ```
-charcheck: dropped 1 entry from charcheck-baseline.json that the fixes removed. Commit the
-file.
+charcheck: dropped 1 entry from charcheck-baseline.json that no longer matches a finding.
+Commit the file.
 ```
 
 The entries that stay are rewritten as the text now reads. Under `--staged` the file is not

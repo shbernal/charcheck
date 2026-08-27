@@ -150,9 +150,13 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
         const entries = plural(dropped, 'entry', 'entries');
         // Not staged under --staged: a hook that added a file to the commit on its own is
         // worse than one that says what it changed.
+        // "no longer match a finding" rather than "the fixes removed": prune only runs after
+        // a fix, but an entry that had already gone stale for some other reason is rebuilt
+        // away by the same pass and counted here too.
+        const match = dropped === 1 ? 'matches' : 'match';
         warn(
           dropped > 0
-            ? `dropped ${entries} from ${where} that the fixes removed. Commit the file.`
+            ? `dropped ${entries} from ${where} that no longer ${match} a finding. Commit the file.`
             : `refreshed ${where} after the fixes. Commit the file.`,
         );
       }

@@ -68,6 +68,15 @@ against every entry that does. A patch release does not.
   opener's may not itself hold a backtick. The `markdown` scope already had this from its
   parser; it is the raw marker scan, which every scope shares, that was guessing.
 
+- **`--fix` now counts the baseline entries it dropped rather than the file's change in
+  length.** The two agree, since a rebuild cannot add entries, but the number said something
+  the arithmetic did not give. It is now the entries over the files this run read, minus the
+  ones a surviving finding rebuilt.
+
+  The message reads `no longer matches a finding` rather than `the fixes removed`, for the
+  same reason: pruning only runs after a fix, but an entry that had already gone stale for
+  some other reason is rebuilt away by the same pass and counted with the rest.
+
 - **A positional path naming a directory now scans it.** `charcheck src/` reported a clean
   tree however many banned characters `src` held, and exited 0 while saying nothing. The
   restriction was matched against each file's own path, and a directory is no file's own

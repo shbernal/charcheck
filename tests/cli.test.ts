@@ -583,6 +583,7 @@ describe('the baseline', () => {
       'first line\nprose - here\n',
     );
     expect(result.err).toContain('dropped 1 entry');
+    expect(result.err).toContain('no longer matches a finding');
     expect((await baseline()) as { entries: unknown[] }).toMatchObject({
       entries: [{ file: 'docs/warn.md' }],
     });

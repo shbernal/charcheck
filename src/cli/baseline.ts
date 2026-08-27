@@ -120,7 +120,12 @@ async function prune(
   if (serializeBaseline(next) === serializeBaseline(baseline.entries)) return {};
 
   await writeBaseline(use.filepath, next);
-  return { pruned: { dropped: baseline.entries.length - next.length } };
+  // Counted against the entries this run could have dropped, rather than read off the change
+  // in the file's length. The two agree, since a rebuild cannot add entries, but only one of
+  // them says what it is: every entry over a file the run read, minus the ones a surviving
+  // finding rebuilt.
+  const dropped = baseline.entries.length - kept.length - rebuilt.length;
+  return { pruned: { dropped } };
 }
 
 /**
