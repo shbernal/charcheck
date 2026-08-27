@@ -2,7 +2,7 @@ import path from 'node:path';
 
 import { glob } from 'tinyglobby';
 
-import { relativeToRoot } from './paths.js';
+import { restrictionPath } from './paths.js';
 import { readTextFile } from './read.js';
 import type { ReadOutcome } from './read.js';
 import { scanText } from './scan.js';
@@ -21,7 +21,8 @@ export interface ScanOptions extends ExtractorOptions {
   root: string;
   rules: readonly Rule[];
   /**
-   * Restrict the scan to these paths, absolute or relative to `root`. Each is still
+   * Restrict the scan to these paths, absolute or relative to `root`. A path may name a
+   * file or a directory, and a directory selects everything below it. Each is still
    * filtered through the rules' globs, so a path outside every rule's `include` is not
    * scanned. This is what a staged-files run passes.
    */
@@ -35,6 +36,13 @@ export interface ScanOptions extends ExtractorOptions {
    * A run continues regardless.
    */
   onWarning?: (message: string) => void;
+  /**
+   * Called for an entry of `files` that no rule's globs reached, so it contributed nothing
+   * to the scan. Left to the caller to phrase, because whether that is worth saying depends
+   * on where the path came from: a person typed it and means it, while a staged set is
+   * whatever the commit happened to touch and is mostly not any rule's business.
+   */
+  onUnmatchedPath?: (file: string) => void;
   /**
    * Called for a file a rule targets and no scope can read, which today means JSX on a
    * TypeScript that ships only a scanner. The scan continues over every other file, so one
@@ -88,10 +96,17 @@ async function planScan(options: ScanOptions): Promise<Map<string, Rule[]>> {
   const { root, rules } = options;
   const ignore = [...DEFAULT_IGNORE, ...(options.ignore ?? [])];
 
-  const restriction =
-    options.files === undefined
-      ? undefined
-      : new Set(options.files.map((file) => relativeToRoot(root, file)));
+  // A path may name a directory, which is no file's own path, so the test is equality or a
+  // prefix at a segment boundary: `src` selects `src/a.ts` and never `srcery/a.ts`. Decided
+  // from the string alone, with no stat: a `--staged` run passes paths that may already be
+  // gone from the working tree, and a filesystem probe would make what a hook scans depend
+  // on the tree it happens to run against.
+  const restriction = options.files?.map((file) => restrictionPath(root, file));
+  const reached = new Set<string>();
+  const entriesFor = (file: string): string[] =>
+    restriction === undefined
+      ? []
+      : restriction.filter((entry) => file === entry || file.startsWith(`${entry}/`));
 
   const plan = new Map<string, Rule[]>();
   const matched = await Promise.all(rules.map((rule) => filesForRule(root, rule, ignore)));
@@ -134,11 +149,22 @@ async function planScan(options: ScanOptions): Promise<Map<string, Rule[]>> {
     }
 
     for (const file of files) {
-      if (restriction && !restriction.has(file)) continue;
+      if (restriction) {
+        const hits = entriesFor(file);
+        if (hits.length === 0) continue;
+        for (const entry of hits) reached.add(entry);
+      }
       const existing = plan.get(file);
       if (existing) existing.push(rule);
       else plan.set(file, [rule]);
     }
+  }
+
+  // A path is intersected with the rules' globs, never substituted for them, so one that no
+  // rule targets scans nothing and the run reports clean over it. Reported once per entry,
+  // however many times it was passed, and before a single file is read.
+  for (const entry of new Set(restriction)) {
+    if (!reached.has(entry)) options.onUnmatchedPath?.(entry);
   }
 
   return plan;

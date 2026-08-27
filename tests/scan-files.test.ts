@@ -115,6 +115,85 @@ describe('scan', () => {
 });
 
 /**
+ * A directory is no file's own path, so it once survived the restriction as nothing at all
+ * and the run reported the tree it was pointed at as clean.
+ */
+describe('a path naming a directory', () => {
+  let tree: string;
+
+  beforeAll(async () => {
+    tree = await mkdtemp(path.join(os.tmpdir(), 'charcheck-dir-'));
+    await mkdir(path.join(tree, 'src', 'nested'), { recursive: true });
+    await mkdir(path.join(tree, 'srcery'), { recursive: true });
+    await writeFile(path.join(tree, 'src', 'a.md'), `a ${EM_DASH}\n`, 'utf8');
+    await writeFile(path.join(tree, 'src', 'nested', 'b.md'), `b ${EM_DASH}\n`, 'utf8');
+    await writeFile(path.join(tree, 'srcery', 'c.md'), `c ${EM_DASH}\n`, 'utf8');
+  });
+
+  afterAll(async () => {
+    await rm(tree, { recursive: true, force: true });
+  });
+
+  const filesFrom = async (files: readonly string[]): Promise<string[]> => {
+    const findings = await scan({
+      root: tree,
+      rules: [rule({ id: 'md', include: ['**/*.md'] })],
+      files,
+    });
+    return findings.map((finding) => finding.file);
+  };
+
+  it('selects every file under it, at any depth', async () => {
+    expect(await filesFrom(['src'])).toEqual(['src/a.md', 'src/nested/b.md']);
+  });
+
+  it('selects the same files with a trailing slash', async () => {
+    expect(await filesFrom(['src/'])).toEqual(['src/a.md', 'src/nested/b.md']);
+  });
+
+  it('selects the same files when absolute', async () => {
+    expect(await filesFrom([path.join(tree, 'src')])).toEqual(['src/a.md', 'src/nested/b.md']);
+  });
+
+  it('does not reach a sibling that shares its name as a prefix', async () => {
+    expect(await filesFrom(['src'])).not.toContain('srcery/c.md');
+  });
+
+  it('still narrows to a single file when one is named', async () => {
+    expect(await filesFrom(['src/nested/b.md'])).toEqual(['src/nested/b.md']);
+  });
+});
+
+describe('a path that reaches nothing', () => {
+  const unmatched = async (files: readonly string[]): Promise<string[]> => {
+    const seen: string[] = [];
+    await scan({
+      root,
+      rules: [rule({ id: 'md', include: ['docs/**/*.md'] })],
+      files,
+      onUnmatchedPath: (file) => seen.push(file),
+    });
+    return seen;
+  };
+
+  it('is reported when it names a file no rule targets', async () => {
+    expect(await unmatched(['src/app.ts'])).toEqual(['src/app.ts']);
+  });
+
+  it('is reported when it names a directory no rule targets', async () => {
+    expect(await unmatched(['src/nested'])).toEqual(['src/nested']);
+  });
+
+  it('is reported once however many times it was passed', async () => {
+    expect(await unmatched(['src/nested', 'src/nested/'])).toEqual(['src/nested']);
+  });
+
+  it('is silent for a path a rule does target', async () => {
+    expect(await unmatched(['docs', 'src/app.ts'])).toEqual(['src/app.ts']);
+  });
+});
+
+/**
  * A rule that reaches nothing produces a clean run, which is the one failure the report
  * cannot show on its own. The commonest cause by far is a dotted directory, which is only
  * walked into when a pattern names it.

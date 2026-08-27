@@ -204,6 +204,48 @@ describe('filtering and exit codes', () => {
     expect(result.out).not.toContain('docs/bad.md');
   });
 
+  /**
+   * A directory named no file, so it survived the intersection as nothing and the tool
+   * reported the tree it was pointed at as clean. `charcheck src/` is its own documented
+   * example, and it was the silent miss the whole tool exists to prevent.
+   */
+  it('limits a run to a directory, and finds what a whole-tree run finds under it', async () => {
+    const whole = await cli([]);
+    for (const argv of [['docs'], ['docs/'], [path.join(root, 'docs')]]) {
+      const result = await cli(argv);
+      expect(result.code).toBe(whole.code);
+      expect(result.out).toContain('docs/bad.md');
+      expect(result.out).toContain('docs/warn.md');
+    }
+  });
+
+  it('does not let a directory reach a sibling that shares its name as a prefix', async () => {
+    await write('docs-drafts/draft.md', `draft ${EM_DASH} here\n`);
+    await write(
+      'charcheck.config.json',
+      JSON.stringify({ rules: [{ id: 'no-em-dash', chars: [EM_DASH], include: ['**/*.md'] }] }),
+    );
+
+    const result = await cli(['docs']);
+    expect(result.out).toContain('docs/bad.md');
+    expect(result.out).not.toContain('docs-drafts/draft.md');
+  });
+
+  it('warns when a path reaches no file any rule targets', async () => {
+    const file = await cli(['other/ignored.md']);
+    expect(file.code).toBe(EXIT_OK);
+    expect(file.err).toContain('path "other/ignored.md" matched no files that any rule targets');
+
+    const directory = await cli(['other']);
+    expect(directory.err).toContain('path "other" matched no files');
+    expect(directory.err).toContain('intersected with each rule');
+  });
+
+  it('says nothing about a path that did reach something', async () => {
+    const result = await cli(['docs']);
+    expect(result.err).not.toContain('matched no files');
+  });
+
   it('drops warnings with --quiet but still exits on the error', async () => {
     const result = await cli(['--quiet']);
     expect(result.code).toBe(EXIT_FINDINGS);
@@ -575,6 +617,17 @@ describe('the baseline', () => {
     const result = await cli(['docs/clean.md', '--baseline-strict']);
     expect(result.code).toBe(EXIT_OK);
     expect(result.err).not.toContain('no longer match');
+  });
+
+  it('reports as stale only the entries under a positional directory', async () => {
+    await write('docs/sub/deep.md', `deep ${EM_DASH} here\n`);
+    await cli(['--baseline-write']);
+    await write('docs/sub/deep.md', 'deep - here\n');
+    await write('docs/bad.md', 'first line\nprose - here\n');
+
+    const result = await cli(['docs/sub', '--baseline-strict']);
+    expect(result.err).toContain('1 baseline entry');
+    expect(result.err).not.toContain('2 baseline entries');
   });
 
   it('says on stderr what a machine-readable report leaves out', async () => {

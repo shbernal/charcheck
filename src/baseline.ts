@@ -63,8 +63,25 @@ export interface Baseline {
  * subset, and treating the rest as fixed would report the whole repository as stale on every
  * commit. `scan()` does not return the files it read, so the caller says instead: it holds
  * the same restriction it passed as `ScanOptions.files`.
+ *
+ * `paths` holds those entries as the scan spells them: root-relative, POSIX, no trailing
+ * slash. An entry may name a directory, so membership is a prefix test rather than a set
+ * lookup. Ask `scopeCovers` rather than reading `paths` directly.
  */
-export type BaselineScope = { kind: 'all' } | { kind: 'files'; files: ReadonlySet<string> };
+export type BaselineScope = { kind: 'all' } | { kind: 'files'; paths: readonly string[] };
+
+/**
+ * Whether a run restricted to `scope` read `file`, which decides whether the absence of a
+ * finding there means fixed or means unseen.
+ *
+ * A positional path may name a directory, and a directory selects every file under it, so
+ * the same segment-boundary prefix test the scan uses to build its plan decides this too.
+ * Spelling it once keeps the two from drifting into disagreement about one path.
+ */
+export function scopeCovers(scope: BaselineScope, file: string): boolean {
+  if (scope.kind === 'all') return true;
+  return scope.paths.some((entry) => file === entry || file.startsWith(`${entry}/`));
+}
 
 export interface Partitioned {
   /** Findings with no entry to account for them. These are what the run fails on. */
@@ -247,7 +264,7 @@ export function partition(
 
   const stale = [...remaining.values()]
     .flat()
-    .filter((entry) => (scope.kind === 'all' ? true : scope.files.has(entry.file)))
+    .filter((entry) => scopeCovers(scope, entry.file))
     .sort(byEntry);
 
   return {

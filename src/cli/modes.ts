@@ -21,7 +21,7 @@ import {
   stagedContent,
   stagedFiles,
 } from '../git.js';
-import { relativeToRoot, toPosix } from '../paths.js';
+import { relativeToRoot, restrictionPath, toPosix } from '../paths.js';
 import { readTextFile } from '../read.js';
 import type { ReadOutcome } from '../read.js';
 import { scan } from '../scan-files.js';
@@ -99,6 +99,14 @@ export async function runTree(
     onWarning: warn,
     onSkipped: skip,
     onSuppressed: (finding: Finding) => suppressed.push(finding),
+    // A person typed this path and expects it to be looked at, so a path that reached
+    // nothing is worth the line. The staged run passes no such handler: there, the paths
+    // are whatever the commit touched and most of them are no rule's business.
+    onUnmatchedPath: (file: string) =>
+      warn(
+        `path "${file}" matched no files that any rule targets. Positional paths are ` +
+          `intersected with each rule's include globs, never substituted for them.`,
+      ),
   };
   // `--fix` looks more than once, and every pass meets the same markers. Cleared before each
   // one so the count describes the tree as it now reads, rather than summing the passes.
@@ -121,15 +129,13 @@ export async function runTree(
   const sources = await sourcesFor(findings, (file) =>
     readTextFile(path.join(scanOptions.root, file)),
   );
-  // Spelled through `relativeToRoot` exactly as the scan spells its own restriction, or the
-  // two spellings of one path never compare equal and every entry reads as out of scope. A
-  // positional directory names no file and so matches no entry, which under-reports stale
-  // rather than inventing one.
+  // Spelled through `restrictionPath` exactly as the scan spells its own restriction, or the
+  // two spellings of one path never compare equal and every entry reads as out of scope.
   const scope: BaselineScope =
     options.paths.length > 0
       ? {
           kind: 'files',
-          files: new Set(options.paths.map((file) => relativeToRoot(scanOptions.root, file))),
+          paths: options.paths.map((file) => restrictionPath(scanOptions.root, file)),
         }
       : { kind: 'all' };
   return { findings, suppressed: sortFindings(suppressed), sources, fixedCount, converged, scope };
@@ -176,7 +182,7 @@ export async function runCommitMsg(
     // `--fix` is refused with `--commit-msg`, so nothing here can fail to settle.
     converged: true,
     // No file in the tree was read, and a message is not baselined in any case.
-    scope: { kind: 'files', files: new Set() },
+    scope: { kind: 'files', paths: [] },
   };
 }
 
@@ -227,7 +233,7 @@ export async function runStaged(
     toPosix(path.relative(root, path.resolve(configRoot, file)));
 
   const staged = await stagedFiles(io.cwd);
-  const scope: BaselineScope = { kind: 'files', files: new Set(staged.map(toConfigPath)) };
+  const scope: BaselineScope = { kind: 'files', paths: staged.map(toConfigPath) };
   if (staged.length === 0) {
     return {
       findings: [],

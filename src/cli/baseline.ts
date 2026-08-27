@@ -15,6 +15,7 @@ import {
   entriesFor,
   partition,
   readBaseline,
+  scopeCovers,
   serializeBaseline,
   writeBaseline,
 } from '../baseline.js';
@@ -101,10 +102,10 @@ async function prune(
   split: Partitioned,
 ): Promise<Pick<BaselineReport, 'pruned' | 'pruneRefused'>> {
   const rebuiltFiles = new Set(split.baselined.map((finding) => finding.file));
-  // A positional path may name a directory, which is in scope without being any file's name.
-  // A file that yielded a matched finding was certainly read, so it is covered either way.
+  // A file that yielded a matched finding was certainly read, whatever the scope says, so
+  // it is covered either way.
   const covered = (file: string): boolean =>
-    outcome.scope.kind === 'all' || outcome.scope.files.has(file) || rebuiltFiles.has(file);
+    scopeCovers(outcome.scope, file) || rebuiltFiles.has(file);
 
   let rebuilt: BaselineEntry[];
   try {

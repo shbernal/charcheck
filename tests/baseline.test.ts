@@ -217,7 +217,7 @@ describe('partition', () => {
 
     const result = partition([], new Map(), baseline, {
       kind: 'files',
-      files: new Set(['staged.md']),
+      paths: ['staged.md'],
     });
 
     expect(result.stale).toEqual([]);

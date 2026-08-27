@@ -30,6 +30,14 @@ so naming a path that no rule targets scans nothing rather than everything.
 That is the safe direction to fail. The alternative, treating a path as a fresh target set,
 would mean `charcheck src/` silently applying prose rules to source files.
 
+A path may name a file or a directory, and a directory selects every file under it. When a
+path reaches nothing the run says so on stderr rather than reporting a clean tree:
+
+```
+path "src/generated" matched no files that any rule targets. Positional paths are
+intersected with each rule's include globs, never substituted for them.
+```
+
 ## Exit codes
 
 | Exit code | Meaning                                       |

@@ -44,7 +44,45 @@ against every entry that does. A patch release does not.
 
   See [Scopes](docs/scopes.md).
 
+### Fixed
+
+- **A positional path naming a directory now scans it.** `charcheck src/` reported a clean
+  tree however many banned characters `src` held, and exited 0 while saying nothing. The
+  restriction was matched against each file's own path, and a directory is no file's own
+  path, so nothing survived it. `charcheck src/a.ts` worked, `charcheck src` did not, and
+  `docs/cli.md` used the second form as its own example.
+
+  A path is now in scope when it equals a file's path or is a parent of it at a segment
+  boundary, so `src` selects `src/a.ts` and never `srcery/a.ts`. A trailing slash is
+  stripped first, since that is what a shell adds when it completes a directory name. The
+  decision is made from the string alone, without asking the filesystem whether the path is
+  a directory: a `--staged` run passes paths that may already be gone from the working tree,
+  and a stat there would make what a hook scans depend on the tree it happens to run
+  against.
+
+  Stale baseline detection follows the same rule, so a run given a directory now reports the
+  entries under it, where before a positional run could report none.
+
+- **A positional path that reaches no file any rule targets now says so on stderr.** Paths
+  are intersected with each rule's `include` and never substituted for it, which is the safe
+  direction to fail but was indistinguishable from a clean run:
+
+  ```
+  path "src/generated" matched no files that any rule targets. Positional paths are
+  intersected with each rule's include globs, never substituted for them.
+  ```
+
+  Said once per path, before the scan. A `--staged` run stays silent about this: there the
+  paths are whatever the commit touched, and most of them are no rule's business.
+
 ### Changed
+
+- **`ScanOptions` gains an optional `onUnmatchedPath`, called for an entry of `files` that no
+  rule's globs reached. It is a change to a frozen type, so it goes out in a minor.** It is
+  additive and optional, so existing callers compile and behave as they did; a caller that
+  passes nothing is told nothing, which is what `--staged` relies on. Whether an unreached
+  path is worth a warning depends on where the path came from, which only the caller knows,
+  so the library reports the fact and the CLI phrases it.
 
 - **`Scope` gains a member, which is a breaking change to an exported type, so this goes out
   in a minor.** A `switch` over `Scope` with no default, or a `Record<Scope, T>`, no longer
