@@ -18,29 +18,22 @@
 import type typescript from 'typescript';
 
 import type { Extractor } from '../types.js';
-import { JsxUnsupportedError } from './missing-peer.js';
-import { resolveTokenKinds } from './token-kinds.js';
 import { commentRanges, type Range } from './token-scan.js';
 import {
-  isJsx,
   languageForFile,
-  SCRIPT_EXTENSIONS,
+  parseScript,
   type ScanningApi,
-  scriptKindFor,
-  type ScriptLanguage,
+  SCRIPT_EXTENSIONS,
+  type ScriptReader,
+  scannerRangeReader,
   scriptReader,
 } from './typescript-peer.js';
 
 /** The same files `strings` reads, because it is the same parser answering. */
 export const COMMENTS_EXTENSIONS = SCRIPT_EXTENSIONS;
 
-/** Reads the comment ranges out of one piece of source. See `LiteralReader`. */
-export type CommentReader = (
-  source: string,
-  language: ScriptLanguage,
-  fileName: string,
-  scope: string,
-) => Range[];
+/** Reads the comment ranges out of one piece of source. */
+export type CommentReader = ScriptReader;
 
 /**
  * TypeScript 5 and 6, through the syntax tree.
@@ -65,13 +58,7 @@ export type CommentReader = (
  */
 export function astCommentReader(ts: typeof typescript): CommentReader {
   return (source, language, fileName) => {
-    const sourceFile = ts.createSourceFile(
-      fileName,
-      source,
-      ts.ScriptTarget.Latest,
-      false,
-      scriptKindFor(ts, language),
-    );
+    const sourceFile = parseScript(ts, source, language, fileName);
 
     const ranges: Range[] = [];
     // A zero-width node, such as the empty modifier list of a bare `class C {}`, sits at the
@@ -108,22 +95,7 @@ export function astCommentReader(ts: typeof typescript): CommentReader {
 
 /** Exported for the same reason as `astCommentReader`. */
 export function scannerCommentReader(ast: ScanningApi): CommentReader {
-  const kinds = resolveTokenKinds(ast.SyntaxKind ?? {});
-  const standard = ast.LanguageVariant?.['Standard'];
-
-  return (source, language, fileName, scope) => {
-    // The same refusal `strings` makes, for the same reason: read as ordinary code, the
-    // apostrophe in JSX text opens a string literal running to the next quote, and every
-    // token boundary after it is wrong. A comment is a gap between two token boundaries.
-    if (isJsx(language)) throw new JsxUnsupportedError(fileName, scope);
-
-    const scanner = ast.createScanner(
-      true,
-      typeof standard === 'number' ? standard : undefined,
-      source,
-    );
-    return commentRanges(scanner, kinds, source);
-  };
+  return scannerRangeReader(ast, commentRanges);
 }
 
 /** See `loadLiteralReader`, which picks its reader the same way. */

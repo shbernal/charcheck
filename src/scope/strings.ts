@@ -1,16 +1,15 @@
 import type typescript from 'typescript';
 
 import type { Chunk, Extractor } from '../types.js';
-import { JsxUnsupportedError } from './missing-peer.js';
-import { resolveTokenKinds } from './token-kinds.js';
 import { literalRanges, type Range } from './token-scan.js';
 import {
-  isJsx,
   languageForFile,
-  SCRIPT_EXTENSIONS,
+  parseScript,
   type ScanningApi,
-  scriptKindFor,
+  SCRIPT_EXTENSIONS,
   type ScriptLanguage,
+  type ScriptReader,
+  scannerRangeReader,
   scriptReader,
 } from './typescript-peer.js';
 
@@ -20,16 +19,8 @@ export type { ScriptLanguage } from './typescript-peer.js';
 /** Extensions the `strings` scope can parse. Anything else is a config error. */
 export const STRINGS_EXTENSIONS = SCRIPT_EXTENSIONS;
 
-/**
- * Reads the string and template literal ranges out of one piece of source. Which TypeScript
- * is installed decides how; nothing above this line knows the difference.
- */
-export type LiteralReader = (
-  source: string,
-  language: ScriptLanguage,
-  fileName: string,
-  scope: string,
-) => Range[];
+/** Reads the string and template literal ranges out of one piece of source. */
+export type LiteralReader = ScriptReader;
 
 /**
  * Exported for the equivalence test, which runs both readers over the same corpus and
@@ -38,13 +29,7 @@ export type LiteralReader = (
  */
 export function astReader(ts: typeof typescript): LiteralReader {
   return (source, language, fileName) => {
-    const sourceFile = ts.createSourceFile(
-      fileName,
-      source,
-      ts.ScriptTarget.Latest,
-      false,
-      scriptKindFor(ts, language),
-    );
+    const sourceFile = parseScript(ts, source, language, fileName);
 
     const ranges: Range[] = [];
     const visit = (node: typescript.Node): void => {
@@ -75,22 +60,7 @@ export function astReader(ts: typeof typescript): LiteralReader {
 
 /** Exported for the same reason as `astReader`. */
 export function scannerReader(ast: ScanningApi): LiteralReader {
-  const kinds = resolveTokenKinds(ast.SyntaxKind ?? {});
-  const standard = ast.LanguageVariant?.['Standard'];
-
-  return (source, language, fileName, scope) => {
-    // A scanner has no way to know it is inside a JSX element, and read as ordinary code
-    // an apostrophe in JSX text opens a string literal that runs to the next quote. That
-    // would report text no reader sees and hide text they do. Refused instead.
-    if (isJsx(language)) throw new JsxUnsupportedError(fileName, scope);
-
-    const scanner = ast.createScanner(
-      true,
-      typeof standard === 'number' ? standard : undefined,
-      source,
-    );
-    return literalRanges(scanner, kinds);
-  };
+  return scannerRangeReader(ast, (scanner, kinds) => literalRanges(scanner, kinds));
 }
 
 /**

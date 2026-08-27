@@ -13,8 +13,9 @@
 
 import type typescript from 'typescript';
 
-import { importPeer, UnsupportedPeerDependencyError } from './missing-peer.js';
-import type { TokenScanner } from './token-scan.js';
+import { importPeer, JsxUnsupportedError, UnsupportedPeerDependencyError } from './missing-peer.js';
+import type { Range, TokenKinds, TokenScanner } from './token-scan.js';
+import { resolveTokenKinds } from './token-kinds.js';
 
 /**
  * The peer range these scopes can parse with. Wide, because it is satisfied two different
@@ -52,7 +53,7 @@ export function languageForFile(file: string): ScriptLanguage | undefined {
   return EXTENSION_LANGUAGE.get(extensionOf(file));
 }
 
-export function isJsx(language: ScriptLanguage): boolean {
+function isJsx(language: ScriptLanguage): boolean {
   return language === 'tsx' || language === 'jsx';
 }
 
@@ -109,10 +110,7 @@ export async function loadTypeScript(scope: string): Promise<TypeScriptApi> {
 }
 
 /** How TypeScript names each of the four languages, for `createSourceFile`. */
-export function scriptKindFor(
-  ts: typeof typescript,
-  language: ScriptLanguage,
-): typescript.ScriptKind {
+function scriptKindFor(ts: typeof typescript, language: ScriptLanguage): typescript.ScriptKind {
   switch (language) {
     case 'ts':
       return ts.ScriptKind.TS;
@@ -123,6 +121,75 @@ export function scriptKindFor(
     case 'js':
       return ts.ScriptKind.JS;
   }
+}
+
+/**
+ * Reads the ranges one script scope cares about out of one piece of source. Which
+ * TypeScript is installed decides how; nothing above this line knows the difference.
+ *
+ * Every script scope has this shape, because the four things a reader needs are the same
+ * four whatever it is looking for: the text, what language it is, what the file is called
+ * for a message, and which scope is asking for one.
+ */
+export type ScriptReader = (
+  source: string,
+  language: ScriptLanguage,
+  fileName: string,
+  scope: string,
+) => Range[];
+
+/**
+ * The syntax tree of one piece of source, on the TypeScript that has a parser.
+ *
+ * Parents are not set, because no reader walks upward and building them costs a pass. The
+ * target is the newest one: this is a lexical read, and refusing to parse a syntax older
+ * TypeScript happens to predate would be refusing to read a file over a version number.
+ */
+export function parseScript(
+  ts: typeof typescript,
+  source: string,
+  language: ScriptLanguage,
+  fileName: string,
+): typescript.SourceFile {
+  return ts.createSourceFile(
+    fileName,
+    source,
+    ts.ScriptTarget.Latest,
+    false,
+    scriptKindFor(ts, language),
+  );
+}
+
+/**
+ * A reader over TypeScript 7's scanner, given the one thing that varies between scopes.
+ *
+ * The JSX refusal lives here rather than in each scope, because it is one decision. A
+ * scanner has no way to know it is inside a JSX element, so read as ordinary code the
+ * apostrophe in `<p>don't</p>` opens a string literal that runs to the next quote, and
+ * every token boundary after it is wrong. That reports text no reader sees, hides text
+ * they do, and it breaks a scope that collects the gaps between tokens exactly as badly as
+ * one that collects the tokens. Refused instead, per file, so the rest of the run stands.
+ *
+ * The kind table and the language variant are resolved once, when the reader is built,
+ * rather than per file in a scan of a large tree.
+ */
+export function scannerRangeReader(
+  ast: ScanningApi,
+  collect: (scanner: TokenScanner, kinds: TokenKinds, source: string) => Range[],
+): ScriptReader {
+  const kinds = resolveTokenKinds(ast.SyntaxKind ?? {});
+  const standard = ast.LanguageVariant?.['Standard'];
+
+  return (source, language, fileName, scope) => {
+    if (isJsx(language)) throw new JsxUnsupportedError(fileName, scope);
+
+    const scanner = ast.createScanner(
+      true,
+      typeof standard === 'number' ? standard : undefined,
+      source,
+    );
+    return collect(scanner, kinds, source);
+  };
 }
 
 /** How a scope turns whichever API is installed into the reader it wants. */

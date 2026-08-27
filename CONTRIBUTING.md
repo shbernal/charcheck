@@ -162,5 +162,14 @@ surface is a new file in `src/scope/` exporting an extractor, one entry in the s
 optional peer dependency declared in `package.json` and imported lazily (never at module top
 level), fixtures under `tests/fixtures/`, and a row in the table in `docs/scopes.md`.
 
+A scope that reads TS/JS source is a smaller job than that, because
+`src/scope/typescript-peer.ts` already holds everything the existing two share: which
+extensions are script files, which language a file is, which of TypeScript's two APIs is
+installed, the source file for the parser reader, and the scanner reader with the JSX
+refusal inside it. What is left to write is the walk that collects the ranges the new scope
+cares about, and the extractor that turns them into chunks. Put anything a second script
+scope would need there rather than beside the one that needed it first, since that is what
+stops one question growing two answers.
+
 Svelte is the openly wanted one, now that `html` has landed. See
 [Limitations](docs/limitations.md).
