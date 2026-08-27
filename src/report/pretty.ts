@@ -1,6 +1,7 @@
 import { createColors } from 'picocolors';
 
 import { describeChars, isInvisibleText } from '../chars.js';
+import { lineBreaksIn } from '../position.js';
 import type { Finding } from '../types.js';
 import { groupByFile, listed, summarize } from './summary.js';
 import type { ListOptions } from './summary.js';
@@ -50,7 +51,14 @@ export function formatPretty(findings: readonly Finding[], options: PrettyOption
       const excerpt = lineAt(lines, finding.line);
       if (excerpt !== undefined) {
         out.push(`  ${excerpt}`);
-        const caret = '^'.repeat(Math.max(1, finding.endColumn - finding.column));
+        // A match that crosses a line break ends on a line this excerpt does not show, so
+        // `endColumn` is a column further up the file and the subtraction goes negative.
+        // Underline what is visible: from the start of the match to the end of the line.
+        const width =
+          lineBreaksIn(finding.match) > 0
+            ? excerpt.length - finding.column + 1
+            : finding.endColumn - finding.column;
+        const caret = '^'.repeat(Math.max(1, width));
         out.push(`  ${' '.repeat(Math.max(0, finding.column - 1))}${c.red(caret)}`);
       }
 

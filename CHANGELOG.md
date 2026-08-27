@@ -75,6 +75,31 @@ against every entry that does. A patch release does not.
   Said once per path, before the scan. A `--staged` run stays silent about this: there the
   paths are whatever the commit touched, and most of them are no rule's business.
 
+- **A match spanning a line break no longer reports a backwards end position.** A finding
+  carries one line and a bare `endColumn`, so when the match crossed a line ending that
+  column belonged to a line nobody recorded and came out smaller than the start column:
+
+  ```json
+  { "startLine": 1, "startColumn": 27, "endColumn": 1 }
+  ```
+
+  Not an exotic input. The `pattern` the docs recommend for a clause separator,
+  `"\\s*\u2014\\s*"`, takes the whitespace around the dash on purpose, and in hard-wrapped
+  prose that whitespace is a line ending.
+
+  A SARIF region with no `endLine` is a region on `startLine`, whose `endColumn` has to be
+  the larger of the two, so the document above is malformed and GitHub code scanning is
+  entitled to reject or misplace it. Such a region now carries the `endLine` its column
+  belongs to. A single-line match, which is nearly all of them, emits exactly the region it
+  emitted before, down to the key order.
+
+  The pretty caret had the same fact missing and drew a single `^` under a match several
+  characters wide, because the negative width hit its clamp. It now underlines the visible
+  part of the match, from its start to the end of the excerpt line.
+
+  Both are derived from the line breaks in `match`, which every finding already carries, so
+  no field was added to `Finding` and nothing consuming one has to change.
+
 ### Changed
 
 - **`ScanOptions` gains an optional `onUnmatchedPath`, called for an entry of `files` that no

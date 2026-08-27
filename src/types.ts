@@ -71,6 +71,12 @@ export interface Finding {
   line: number;
   /** 1-based, UTF-16 code units. */
   column: number;
+  /**
+   * The column just past the match, on the line the match ends on. For a match that spans a
+   * line break that is a later line than `line`, so the pair reads as backwards; `match`
+   * holds the line breaks, and the reporters count them rather than a field carrying the
+   * end line twice.
+   */
   endColumn: number;
   /** Absolute offset into the file text, for fix application. */
   offset: number;

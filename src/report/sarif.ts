@@ -1,3 +1,4 @@
+import { lineBreaksIn } from '../position.js';
 import type { Finding } from '../types.js';
 import { listed } from './summary.js';
 import type { ListOptions } from './summary.js';
@@ -26,6 +27,23 @@ export interface SarifOptions extends ListOptions {
 /** `inSource`, because every suppression charcheck honours is a marker in the file. */
 const IN_SOURCE = [{ kind: 'inSource' }];
 
+/**
+ * Where the match ends.
+ *
+ * A region with no `endLine` is a region on `startLine`, and its `endColumn` has to be
+ * greater than `startColumn` or the document is malformed. `endColumn` is the column just
+ * past the match, so for a match that crosses a line break it is a column on a later line
+ * and reads as backwards. The line it belongs to is `finding.match` away, which is why no
+ * field on the finding has to carry it.
+ *
+ * Emitted only when the match actually spans lines, so the overwhelmingly common
+ * single-line result keeps the exact shape code scanning has been ingesting.
+ */
+function regionEnd(finding: Finding): object {
+  const breaks = lineBreaksIn(finding.match);
+  return breaks > 0 ? { endLine: finding.line + breaks } : {};
+}
+
 export function formatSarif(all: readonly Finding[], options: SarifOptions = {}): string {
   const findings = listed(all, options);
   // Narrowed by --quiet the same way the reported findings are. A flag that lists errors
@@ -52,6 +70,7 @@ export function formatSarif(all: readonly Finding[], options: SarifOptions = {})
           region: {
             startLine: finding.line,
             startColumn: finding.column,
+            ...regionEnd(finding),
             endColumn: finding.endColumn,
           },
         },
