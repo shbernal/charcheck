@@ -60,7 +60,10 @@ describe('a match that spans a line break', () => {
 
   it('underlines the visible part of the match rather than one column', async () => {
     const finding = await one(WRAPPED);
-    const text = formatPretty([finding], { sources: new Map([['a.md', WRAPPED]]) });
+    // Colourless, because the assertion is about where the carets sit. picocolors turns
+    // itself on when CI is set, which puts an escape between the padding and the caret and
+    // fails this everywhere except a developer's terminal.
+    const text = formatPretty([finding], { color: false, sources: new Map([['a.md', WRAPPED]]) });
     // From the space before the dash to the end of the excerpt: two columns, not the single
     // caret a negative width would have been clamped to.
     expect(text).toContain(`  ${' '.repeat(9)}^^\n`);
@@ -78,7 +81,7 @@ describe('a match on one line', () => {
   it('underlines exactly the match', async () => {
     const text = `prose ${EM_DASH} here\n`;
     const finding = await one(text, emDashRule);
-    expect(formatPretty([finding], { sources: new Map([['a.md', text]]) })).toContain(
+    expect(formatPretty([finding], { color: false, sources: new Map([['a.md', text]]) })).toContain(
       `  ${' '.repeat(6)}^\n`,
     );
   });
