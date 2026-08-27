@@ -19,11 +19,14 @@ export interface PrettyOptions extends ListOptions {
    */
   baselined?: number;
   /**
-   * How many findings a suppression marker silenced. Counted, never listed: a silence
-   * somebody wrote on purpose and re-read on every run is how people learn to stop reading
-   * the last line. One number answers whether anything went quiet, which is the question.
+   * The findings a suppression marker silenced. Counted, never listed: a silence somebody
+   * wrote on purpose and re-read on every run is how people learn to stop reading the last
+   * line. One number answers whether anything went quiet, which is the question.
+   *
+   * The findings rather than the number, because every other formatter is handed them and a
+   * run's summary should not be assembled two ways depending on who is printing it.
    */
-  suppressed?: number;
+  suppressed?: readonly Finding[];
 }
 
 /** The excerpt for one finding, from lines split once per file rather than once per finding. */
@@ -36,7 +39,7 @@ function lineAt(lines: readonly string[] | undefined, line: number): string | un
 export function formatPretty(findings: readonly Finding[], options: PrettyOptions = {}): string {
   const c = createColors(options.color);
   const out: string[] = [];
-  const summary = summarize(findings);
+  const summary = summarize(findings, options.suppressed);
 
   for (const [file, forFile] of groupByFile(listed(findings, options))) {
     const lines = options.sources?.get(file)?.split('\n');
@@ -88,12 +91,12 @@ export function formatPretty(findings: readonly Finding[], options: PrettyOption
     // The line this whole count exists for. With no findings there is no summary clause to
     // carry it, and a run in which every finding was silenced would otherwise print exactly
     // what a run over a clean tree prints, down to the byte.
-    if (options.suppressed) {
-      out.push(c.dim(`${plural(options.suppressed, 'finding')} suppressed by a marker.`));
+    if (summary.suppressed > 0) {
+      out.push(c.dim(`${plural(summary.suppressed, 'finding')} suppressed by a marker.`));
     }
   } else {
     const parts = [plural(summary.errors, 'error'), plural(summary.warnings, 'warning')];
-    if (options.suppressed) parts.push(`${String(options.suppressed)} suppressed`);
+    if (summary.suppressed > 0) parts.push(`${String(summary.suppressed)} suppressed`);
     const where = `in ${plural(summary.files, 'file')}`;
     const fixable =
       summary.fixable > 0 ? c.dim(` (${String(summary.fixable)} fixable with --fix)`) : '';

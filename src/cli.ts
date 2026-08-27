@@ -194,7 +194,7 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
         fixedCount,
         quiet,
         baselined,
-        suppressed: suppressed.length,
+        suppressed,
       }),
     );
   }
