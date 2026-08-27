@@ -7,8 +7,8 @@ import { readBaseline } from '../baseline.js';
 import { fileRules } from '../config/resolve.js';
 import type { LoadedConfig } from '../config/types.js';
 import { DEFAULT_IGNORE, filesForRule } from '../scan-files.js';
-import { scopeSupportsFile } from '../scope/index.js';
-import type { Rule, Scope } from '../types.js';
+import { peersForScopes, scopeSupportsFile } from '../scope/index.js';
+import type { Rule } from '../types.js';
 import { createGlobAnonymizer } from './anonymize.js';
 
 /**
@@ -20,16 +20,6 @@ import { createGlobAnonymizer } from './anonymize.js';
  * all. The human sections are left as placeholders in the same order the issue form asks for
  * them, so the three shapes that describe a charcheck report stay one shape.
  */
-
-/** Which optional peer each scope needs, so a report names the versions that were in play. */
-const SCOPE_PEERS: Record<Scope, readonly string[]> = {
-  raw: [],
-  strings: ['typescript'],
-  comments: ['typescript'],
-  markup: ['typescript', '@vue/compiler-sfc'],
-  markdown: ['micromark'],
-  html: ['parse5'],
-};
 
 /**
  * `\uXXXX` for anything outside printable ASCII.
@@ -93,11 +83,7 @@ async function peerVersion(from: string, name: string): Promise<string | undefin
 }
 
 function peersFor(rules: readonly Rule[]): string[] {
-  const needed = new Set<string>();
-  for (const rule of rules) {
-    for (const peer of SCOPE_PEERS[rule.scope ?? 'raw']) needed.add(peer);
-  }
-  return [...needed].sort();
+  return peersForScopes(rules.map((rule) => rule.scope ?? 'raw'));
 }
 
 /**

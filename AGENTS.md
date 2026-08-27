@@ -42,9 +42,11 @@ Two traps that cost the most time when hit:
 - `src/` sources, `dist/` build output, `tests/` vitest suites and fixtures.
 - `docs/` is the user-facing reference. Update it when behavior, config, or the CLI changes.
 - Optional peer dependencies are imported lazily, only when a rule uses the scope that needs
-  them. Never import one at module top level. `SCOPE_PEERS` in `src/report/issue.ts` is the
+  them. Never import one at module top level. The registry in `src/scope/index.ts` is the
   exhaustive scope-to-peer table, and is the one place to read rather than a list to keep in
-  your head.
+  your head. It holds everything a scope is, so a new one fills in an extractor, the
+  extensions it can read (`null` only for `raw`, which reads anything) and its peers, and
+  the compiler asks for all three.
 
 ## Where documentation goes
 

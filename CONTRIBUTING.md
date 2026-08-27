@@ -158,9 +158,16 @@ Not closed forever, but reopening one needs a reason beyond preference:
 ## Adding a scope
 
 The most likely contribution, and by the decision above the only way a surface arrives. A new
-surface is a new file in `src/scope/` exporting an extractor, one entry in the scope table, an
-optional peer dependency declared in `package.json` and imported lazily (never at module top
-level), fixtures under `tests/fixtures/`, and a row in the table in `docs/scopes.md`.
+surface is a new file in `src/scope/` exporting an extractor, one entry in the registry in
+`src/scope/index.ts`, an optional peer dependency declared in `package.json` and imported
+lazily (never at module top level), fixtures under `tests/fixtures/`, and a row in the table
+in `docs/scopes.md`.
+
+The registry entry is where a scope is defined: its extractor, the extensions it can read,
+and the peers it imports. Every field is required, so a scope cannot arrive half declared.
+`extensions: null` means unrestricted and is `raw`'s alone; a parser-backed scope that
+claimed it would be scanned against files it cannot read, reporting them clean, and would
+turn off both the config error and the run warning written to catch exactly that.
 
 A scope that reads TS/JS source is a smaller job than that, because
 `src/scope/typescript-peer.ts` already holds everything the existing two share: which

@@ -1,4 +1,4 @@
-import { SCOPE_EXTENSIONS, SCOPES } from '../scope/index.js';
+import { SCOPE_NAMES, scopeExtensions } from '../scope/index.js';
 import type { Rule, Scope, Severity } from '../types.js';
 import type { CharcheckConfig } from './types.js';
 
@@ -81,8 +81,8 @@ export function patternExtensions(pattern: string): string[] | undefined {
  */
 function checkScopeAgainstPatterns(rule: Rule, label: string, problems: string[]): void {
   const scope = rule.scope ?? 'raw';
-  const supported = SCOPE_EXTENSIONS[scope];
-  if (!supported || !Array.isArray(rule.include)) return;
+  const supported = scopeExtensions(scope);
+  if (supported === null || !Array.isArray(rule.include)) return;
 
   for (const pattern of rule.include) {
     if (typeof pattern !== 'string' || VIRTUAL_PATTERN.test(pattern)) continue;
@@ -151,8 +151,8 @@ function validateRule(value: unknown, index: number, problems: string[]): void {
   if (value['exclude'] !== undefined) stringArray(value['exclude'], `${name}.exclude`, problems);
 
   const scope = value['scope'];
-  if (scope !== undefined && !SCOPES.includes(scope as Scope)) {
-    problems.push(`${name}.scope must be one of ${SCOPES.join(', ')}.`);
+  if (scope !== undefined && !SCOPE_NAMES.includes(scope as Scope)) {
+    problems.push(`${name}.scope must be one of ${SCOPE_NAMES.join(', ')}.`);
   }
 
   const severity = value['severity'];
