@@ -13,6 +13,7 @@ import { prepareCommitMessage } from '../commit-msg.js';
 import { textAttributesOf, toScanOptions, virtualRules } from '../config/resolve.js';
 import type { LoadedConfig } from '../config/types.js';
 import { fixToFixpoint, isFixable } from '../fix-files.js';
+import type { FixpointOptions } from '../fix-files.js';
 import {
   commentChar,
   dirtyFiles,
@@ -26,6 +27,7 @@ import { relativeToRoot, restrictionPath, toPosix } from '../paths.js';
 import { readTextFile } from '../read.js';
 import type { ReadOutcome } from '../read.js';
 import { scan } from '../scan-files.js';
+import type { ScanOptions } from '../scan-files.js';
 import { scanText } from '../scan.js';
 import type { Finding } from '../types.js';
 import { UsageError } from './options.js';
@@ -85,6 +87,60 @@ async function sourcesFor(
   return sources;
 }
 
+/**
+ * A scan, and the fix loop when one was asked for. The wiring both file-reading modes need,
+ * assembled once.
+ *
+ * The clearing before each pass is the part worth having in one place. `--fix` looks more
+ * than once and every pass meets the same suppression markers, so a count that is not reset
+ * sums the passes instead of describing the tree as it now reads. Written out per mode, it
+ * was the same three lines with the same reasoning beside them twice.
+ *
+ * What varies is passed in and nothing branches on it: `scanOptions` already carries the
+ * staged reader when there is one, and `fixpoint` carries the held files and the staging
+ * step when the caller has them.
+ */
+async function scanAndFix(options: {
+  scanOptions: ScanOptions;
+  root: string;
+  fix: boolean;
+  warn: (message: string) => void;
+  /** Cleared before each pass and refilled by `scanOptions.onSuppressed`. */
+  suppressed: Finding[];
+  /**
+   * How this mode wants the fix loop run, given what the first look found. A function
+   * because `--staged` decides what to hold back from the findings themselves, and it has to
+   * decide before the first pass writes anything.
+   */
+  fixpoint?: (found: readonly Finding[]) => Promise<FixpointOptions>;
+}): Promise<{ findings: Finding[]; fixedCount: number; converged: boolean; files: string[] }> {
+  const { scanOptions, root, fix, warn, suppressed, fixpoint } = options;
+
+  const rescan = async (): Promise<Finding[]> => {
+    suppressed.length = 0;
+    return scan(scanOptions);
+  };
+
+  const findings = await scan(scanOptions);
+  if (!fix || !findings.some(isFixable)) {
+    return { findings, fixedCount: 0, converged: true, files: [] };
+  }
+
+  const outcome = await fixToFixpoint(
+    root,
+    findings,
+    rescan,
+    warn,
+    (await fixpoint?.(findings)) ?? {},
+  );
+  return {
+    findings: outcome.findings,
+    fixedCount: outcome.fixed,
+    converged: outcome.converged,
+    files: outcome.files,
+  };
+}
+
 /** The ordinary run: the working tree, optionally narrowed to some paths. */
 export async function runTree(
   loaded: LoadedConfig,
@@ -107,23 +163,13 @@ export async function runTree(
           `intersected with each rule's include globs, never substituted for them.`,
       ),
   };
-  // `--fix` looks more than once, and every pass meets the same markers. Cleared before each
-  // one so the count describes the tree as it now reads, rather than summing the passes.
-  const rescan = async (): Promise<Finding[]> => {
-    suppressed.length = 0;
-    return scan(scanOptions);
-  };
-
-  let findings = await scan(scanOptions);
-  let fixedCount = 0;
-  let converged = true;
-
-  if (options.fix && findings.some(isFixable)) {
-    const outcome = await fixToFixpoint(scanOptions.root, findings, rescan, warn);
-    findings = outcome.findings;
-    fixedCount = outcome.fixed;
-    converged = outcome.converged;
-  }
+  const { findings, fixedCount, converged } = await scanAndFix({
+    scanOptions,
+    root: scanOptions.root,
+    fix: options.fix,
+    warn,
+    suppressed,
+  });
 
   const sources = await sourcesFor(findings, (file) =>
     readTextFile(path.join(scanOptions.root, file)),
@@ -259,55 +305,56 @@ export async function runStaged(
     },
   };
 
-  let findings = await scan(scanOptions);
-  let fixedCount = 0;
-  let converged = true;
-
-  if (options.fix && findings.some(isFixable)) {
-    // A file whose working tree disagrees with the index is not fixed here at all, and the
-    // reason is the staging rather than the write. `git add` takes the whole file, so fixing
-    // one line of a half-staged file commits every other unstaged change in it, silently and
-    // with nothing wrong in the output to notice. Held back per file rather than per run:
-    // the hazard is that file's `git add`, so the rest of the commit can still be fixed.
-    //
-    // What the developer gets for the held file is what a `--staged` run without `--fix`
-    // would have given them anyway, which is the finding reported and the run failed.
+  /**
+   * What the fix loop is allowed to write, and what it must do after each pass.
+   *
+   * A file whose working tree disagrees with the index is not fixed at all, and the reason
+   * is the staging rather than the write. `git add` takes the whole file, so fixing one line
+   * of a half-staged file commits every other unstaged change in it, silently and with
+   * nothing wrong in the output to notice. Held back per file rather than per run: the
+   * hazard is that file's `git add`, so the rest of the commit can still be fixed. What the
+   * developer gets for a held file is what a `--staged` run without `--fix` would have given
+   * them anyway, which is the finding reported and the run failed.
+   */
+  const holdAndStage = async (found: readonly Finding[]): Promise<FixpointOptions> => {
     const dirty = new Set((await dirtyFiles(io.cwd)).map(toConfigPath));
     const hold = new Set(
-      findings
+      found
         .filter(isFixable)
         .map((finding) => finding.file)
         .filter((file) => dirty.has(file)),
     );
     for (const file of [...hold].sort()) {
       warn(
-        `not fixing ${file}: it differs from what is staged, and fixing it means staging the ` +
-          `whole file, which would put your unstaged changes there into the commit. Stage ` +
-          `them, stash them, or fix the file without --staged.`,
+        `not fixing ${file}: it differs from what is staged, and fixing it means staging ` +
+          `the whole file, which would put your unstaged changes there into the commit. ` +
+          `Stage them, stash them, or fix the file without --staged.`,
       );
     }
 
-    // The working tree is what gets rewritten; the index then has to be brought along, or
-    // the commit would still carry the unfixed content. Staged after every pass rather than
-    // once at the end, because the next pass scans the index: an unstaged fix would be read
-    // as never having happened, and the pass would compute the same finding again.
-    // Cleared before each pass, as in `runTree`: the markers are met again every time.
-    const rescan = async (): Promise<Finding[]> => {
-      suppressed.length = 0;
-      return scan(scanOptions);
-    };
-    const outcome = await fixToFixpoint(configRoot, findings, rescan, warn, {
+    return {
       hold,
-      afterPass: async (files) => stageFiles(root, files.map(toRepoPath)),
-    });
-    findings = outcome.findings;
-    fixedCount = outcome.fixed;
-    converged = outcome.converged;
-    if (outcome.files.length > 0) {
-      // Once, naming the files rather than the writes: a file rewritten by three passes was
-      // staged three times and is still one file in the commit.
-      io.err(`charcheck: re-staged ${String(outcome.files.length)} fixed file(s).`);
-    }
+      // The working tree is what gets rewritten; the index then has to be brought along, or
+      // the commit would still carry the unfixed content. Staged after every pass rather
+      // than once at the end, because the next pass scans the index: an unstaged fix would
+      // be read as never having happened, and the pass would compute the same finding again.
+      afterPass: async (written: readonly string[]) => stageFiles(root, written.map(toRepoPath)),
+    };
+  };
+
+  const { findings, fixedCount, converged, files } = await scanAndFix({
+    scanOptions,
+    root: configRoot,
+    fix: options.fix,
+    warn,
+    suppressed,
+    fixpoint: holdAndStage,
+  });
+
+  if (files.length > 0) {
+    // Once, naming the files rather than the writes: a file rewritten by three passes was
+    // staged three times and is still one file in the commit.
+    io.err(`charcheck: re-staged ${String(files.length)} fixed file(s).`);
   }
 
   return {
