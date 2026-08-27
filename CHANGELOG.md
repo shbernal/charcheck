@@ -9,6 +9,8 @@ against every entry that does. A patch release does not.
 
 ## [Unreleased]
 
+## [0.4.0]
+
 ### Added
 
 - **A `comments` scope**, reading the line and block comments of a `.ts`, `.tsx`, `.mts`,
@@ -731,7 +733,8 @@ First public release.
 `markup` covers `.vue` only, and there is no Markdown code-fence awareness for findings.
 The full list is in [docs/limitations.md](docs/limitations.md).
 
-[unreleased]: https://github.com/shbernal/charcheck/compare/v0.3.0...HEAD
+[unreleased]: https://github.com/shbernal/charcheck/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/shbernal/charcheck/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/shbernal/charcheck/compare/v0.2.5...v0.3.0
 [0.2.5]: https://github.com/shbernal/charcheck/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/shbernal/charcheck/compare/v0.2.3...v0.2.4
