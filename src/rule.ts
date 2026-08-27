@@ -1,3 +1,4 @@
+import { compareStrings } from './order.js';
 import { escapeRegExp } from './regex.js';
 import type { FixFunction, Rule, Scope, Severity } from './types.js';
 
@@ -39,7 +40,7 @@ export class RuleError extends Error {
  * back to code-unit order purely so the compiled source is stable across runs.
  */
 function byLengthThenValue(a: string, b: string): number {
-  return b.length - a.length || (a < b ? -1 : a > b ? 1 : 0);
+  return b.length - a.length || compareStrings(a, b);
 }
 
 const compiled = new WeakMap<Rule, CompiledRule>();

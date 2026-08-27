@@ -1,3 +1,4 @@
+import { errorCode } from '../errors.js';
 import { REPORT_ISSUE_URL } from '../report-url.js';
 
 /**
@@ -100,7 +101,7 @@ export class JsxUnsupportedError extends Error {
  * inside the package, a broken install) is a real error and must not be disguised.
  */
 function isModuleNotFound(error: unknown): boolean {
-  const code = (error as { code?: string } | undefined)?.code;
+  const code = errorCode(error);
   return code === 'ERR_MODULE_NOT_FOUND' || code === 'MODULE_NOT_FOUND';
 }
 

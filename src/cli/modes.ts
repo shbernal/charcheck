@@ -21,6 +21,7 @@ import {
   stagedContent,
   stagedFiles,
 } from '../git.js';
+import { byPosition } from '../order.js';
 import { relativeToRoot, restrictionPath, toPosix } from '../paths.js';
 import { readTextFile } from '../read.js';
 import type { ReadOutcome } from '../read.js';
@@ -57,14 +58,12 @@ export interface ScanOutcome {
 }
 
 /**
- * The order `scan` puts its own findings in. Suppressed ones arrive as the files are read,
- * which is concurrent, so a report over them would otherwise be ordered by how fast a disk
- * answered.
+ * The order `scan` puts its own findings in, which is why it is the shared comparator rather
+ * than one written here. Suppressed findings arrive as the files are read, which is
+ * concurrent, so a report over them would otherwise be ordered by how fast a disk answered.
  */
 function sortFindings(findings: Finding[]): Finding[] {
-  return findings.sort((a, b) =>
-    a.file < b.file ? -1 : a.file > b.file ? 1 : a.offset - b.offset,
-  );
+  return findings.sort(byPosition);
 }
 
 /**

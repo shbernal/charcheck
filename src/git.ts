@@ -14,29 +14,27 @@ export class GitError extends Error {
 
 const MAX_BUFFER = 64 * 1024 * 1024;
 
-async function git(args: string[], cwd: string): Promise<string> {
-  try {
-    const { stdout } = await run('git', args, { cwd, maxBuffer: MAX_BUFFER });
-    return stdout;
-  } catch (cause) {
-    const stderr = (cause as { stderr?: string }).stderr;
-    throw new GitError(
-      `git ${args[0] ?? ''} failed: ${(stderr ?? (cause as Error).message).trim()}`,
-    );
-  }
-}
-
-/** Bytes, for content that must not be mangled before it is decoded once as UTF-8. */
+/**
+ * Bytes, always, because content that must not be mangled has to reach its one decode
+ * untouched. `git` below is the same call with that decode applied.
+ *
+ * The one implementation is here for the error rather than for the call. What a person
+ * reads when git refuses is this message, and two copies of it is two places for a wording
+ * change to land in one of.
+ */
 async function gitBuffer(args: string[], cwd: string): Promise<Buffer> {
   try {
     const { stdout } = await run('git', args, { cwd, maxBuffer: MAX_BUFFER, encoding: 'buffer' });
     return stdout;
   } catch (cause) {
-    const stderr = (cause as { stderr?: Buffer }).stderr;
-    throw new GitError(
-      `git ${args[0] ?? ''} failed: ${(stderr?.toString('utf8') ?? (cause as Error).message).trim()}`,
-    );
+    const stderr = (cause as { stderr?: Buffer | string }).stderr;
+    const detail = (stderr === undefined ? (cause as Error).message : stderr.toString()).trim();
+    throw new GitError(`git ${args[0] ?? ''} failed: ${detail}`);
   }
+}
+
+async function git(args: string[], cwd: string): Promise<string> {
+  return (await gitBuffer(args, cwd)).toString('utf8');
 }
 
 /**

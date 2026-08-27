@@ -1,6 +1,7 @@
 import { createColors } from 'picocolors';
 
 import { describeChars, isInvisibleText } from '../chars.js';
+import { plural } from '../plural.js';
 import { lineBreaksIn } from '../position.js';
 import type { Finding } from '../types.js';
 import { groupByFile, listed, summarize } from './summary.js';
@@ -23,11 +24,6 @@ export interface PrettyOptions extends ListOptions {
    * the last line. One number answers whether anything went quiet, which is the question.
    */
   suppressed?: number;
-}
-
-/** Shared with the CLI, so a count reads the same wherever a person meets it. */
-export function plural(count: number, word: string): string {
-  return `${count} ${word}${count === 1 ? '' : 's'}`;
 }
 
 /** The excerpt for one finding, from lines split once per file rather than once per finding. */

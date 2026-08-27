@@ -7,6 +7,7 @@ import { readBaseline } from '../baseline.js';
 import { fileRules } from '../config/resolve.js';
 import type { LoadedConfig } from '../config/types.js';
 import { DEFAULT_IGNORE, filesForRule } from '../scan-files.js';
+import { plural } from '../plural.js';
 import { peersForScopes, scopeSupportsFile } from '../scope/index.js';
 import type { Rule } from '../types.js';
 import { createGlobAnonymizer } from './anonymize.js';
@@ -151,7 +152,7 @@ async function describeBaseline(filepath: string | undefined): Promise<string> {
     }
     const count = baseline.entries.length;
     return (
-      `A baseline at \`${name}\` holds ${String(count)} ${count === 1 ? 'entry' : 'entries'}. ` +
+      `A baseline at \`${name}\` holds ${plural(count, 'entry', 'entries')}. ` +
       `Those findings are reported by no run that reads it, so the counts below will not ` +
       `reconcile with what the run printed.`
     );

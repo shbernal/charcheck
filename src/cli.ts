@@ -14,7 +14,8 @@ import { ConfigNotFoundError, loadConfig } from './config/load.js';
 import { ConfigError } from './config/schema.js';
 import { formatIssueReport } from './report/issue.js';
 import { formatJson } from './report/json.js';
-import { formatPretty, plural } from './report/pretty.js';
+import { plural } from './plural.js';
+import { formatPretty } from './report/pretty.js';
 import { formatSarif } from './report/sarif.js';
 
 export type { CliIo } from './cli/options.js';
@@ -146,7 +147,7 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
       else if (report.missing) warn(`no baseline at ${where}, so every finding is new.`);
       if (report.pruned) {
         const dropped = report.pruned.dropped;
-        const entries = `${String(dropped)} ${dropped === 1 ? 'entry' : 'entries'}`;
+        const entries = plural(dropped, 'entry', 'entries');
         // Not staged under --staged: a hook that added a file to the commit on its own is
         // worse than one that says what it changed.
         warn(
@@ -157,7 +158,7 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
       }
       if (report.pruneRefused) warn(`left ${where} alone: ${report.pruneRefused}`);
       if (stale > 0) {
-        const entries = stale === 1 ? '1 baseline entry' : `${String(stale)} baseline entries`;
+        const entries = plural(stale, 'baseline entry', 'baseline entries');
         warn(
           `${entries} in ${where} no longer ${stale === 1 ? 'matches' : 'match'} a finding` +
             (use.strict

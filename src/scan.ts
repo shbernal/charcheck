@@ -1,4 +1,5 @@
 import { BYTE_ORDER_MARK, describeChars } from './chars.js';
+import { compareStrings } from './order.js';
 import { buildLineIndex, positionAt } from './position.js';
 import type { LineIndex } from './position.js';
 import { compileRule } from './rule.js';
@@ -156,9 +157,7 @@ export async function scanText(
     }
   }
 
-  findings.sort(
-    (a, b) => a.offset - b.offset || (a.ruleId < b.ruleId ? -1 : a.ruleId > b.ruleId ? 1 : 0),
-  );
+  findings.sort((a, b) => a.offset - b.offset || compareStrings(a.ruleId, b.ruleId));
   return findings;
 }
 

@@ -14,6 +14,8 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
+import { describeError, errorCode } from './errors.js';
+import { byPosition, compareStrings } from './order.js';
 import { stripBom } from './scan.js';
 import type { Finding } from './types.js';
 
@@ -133,16 +135,13 @@ function bucketOf(file: string, ruleId: string): string {
   return `${file}${SEPARATOR}${ruleId}`;
 }
 
-function byPosition(a: Finding, b: Finding): number {
-  if (a.file !== b.file) return a.file < b.file ? -1 : 1;
-  return a.offset - b.offset;
-}
-
 function byEntry(a: BaselineEntry, b: BaselineEntry): number {
-  if (a.file !== b.file) return a.file < b.file ? -1 : 1;
-  if (a.ruleId !== b.ruleId) return a.ruleId < b.ruleId ? -1 : 1;
-  if (a.context !== b.context) return a.context < b.context ? -1 : 1;
-  return a.ordinal - b.ordinal;
+  return (
+    compareStrings(a.file, b.file) ||
+    compareStrings(a.ruleId, b.ruleId) ||
+    compareStrings(a.context, b.context) ||
+    a.ordinal - b.ordinal
+  );
 }
 
 /**
@@ -313,11 +312,8 @@ export async function readBaseline(filepath: string): Promise<Baseline | undefin
   try {
     text = await readFile(filepath, 'utf8');
   } catch (cause) {
-    const code = (cause as { code?: string }).code;
-    if (code === 'ENOENT') return undefined;
-    throw new BaselineError(
-      `cannot read the baseline at ${filepath}: ${code ?? (cause as Error).message}`,
-    );
+    if (errorCode(cause) === 'ENOENT') return undefined;
+    throw new BaselineError(`cannot read the baseline at ${filepath}: ${describeError(cause)}`);
   }
 
   let parsed: unknown;
@@ -376,9 +372,6 @@ export async function writeBaseline(
     await mkdir(path.dirname(filepath), { recursive: true });
     await writeFile(filepath, serializeBaseline(entries), 'utf8');
   } catch (cause) {
-    const code = (cause as { code?: string }).code;
-    throw new BaselineError(
-      `cannot write the baseline at ${filepath}: ${code ?? (cause as Error).message}`,
-    );
+    throw new BaselineError(`cannot write the baseline at ${filepath}: ${describeError(cause)}`);
   }
 }

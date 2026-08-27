@@ -1,5 +1,7 @@
 import { readFile } from 'node:fs/promises';
 
+import { describeError, errorCode } from './errors.js';
+
 export type ReadOutcome =
   | { ok: true; text: string }
   | { ok: false; reason: string; missing: boolean };
@@ -15,10 +17,10 @@ export async function readTextFile(file: string): Promise<ReadOutcome> {
   try {
     return { ok: true, text: await readFile(file, 'utf8') };
   } catch (cause) {
-    const code = (cause as { code?: string }).code;
+    const code = errorCode(cause);
     // A path that vanished between globbing and reading is normal: a run against staged
     // files races the working tree by nature.
     const missing = code === 'ENOENT' || code === 'EISDIR';
-    return { ok: false, missing, reason: code ?? (cause as Error).message };
+    return { ok: false, missing, reason: describeError(cause) };
   }
 }

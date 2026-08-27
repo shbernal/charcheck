@@ -2,6 +2,7 @@ import path from 'node:path';
 
 import { glob } from 'tinyglobby';
 
+import { byPosition } from './order.js';
 import { restrictionPath } from './paths.js';
 import { readTextFile } from './read.js';
 import type { ReadOutcome } from './read.js';
@@ -221,7 +222,5 @@ export async function scan(options: ScanOptions): Promise<Finding[]> {
     }
   });
 
-  return perFile
-    .flat()
-    .sort((a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : a.offset - b.offset));
+  return perFile.flat().sort(byPosition);
 }
