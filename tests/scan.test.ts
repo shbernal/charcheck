@@ -172,6 +172,53 @@ describe('suppressions', () => {
     expect(findings[0]!.line).toBe(7);
   });
 
+  it('does not end a tilde fence on a backtick line inside it', async () => {
+    // CommonMark closes a fence only on the same character. Toggling on any fence ended the
+    // block here, and the marker in the rest of the example took effect.
+    const text = [
+      '~~~',
+      '```',
+      'charcheck-disable-file',
+      '```',
+      '~~~',
+      '',
+      `prose ${EM_DASH} here`,
+    ].join('\n');
+    const findings = await scanText(text, 'README.md', [emDashRule], { assumeText: true });
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.line).toBe(7);
+  });
+
+  it('does not end a longer fence on a shorter one inside it', async () => {
+    const text = [
+      '````',
+      '```',
+      'charcheck-disable-file',
+      '```',
+      '````',
+      '',
+      `prose ${EM_DASH} here`,
+    ].join('\n');
+    const findings = await scanText(text, 'README.md', [emDashRule], { assumeText: true });
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.line).toBe(7);
+  });
+
+  it('does not end a fence on a line that carries an info string', async () => {
+    // Only an opener may be followed by one, so a `\`\`\`js` inside a block is content.
+    const text = [
+      '```',
+      '```js',
+      'charcheck-disable-file',
+      '```',
+      '',
+      `prose ${EM_DASH} here`,
+    ].join('\n');
+    const findings = await scanText(text, 'README.md', [emDashRule], { assumeText: true });
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.line).toBe(6);
+  });
+
   it('still honours a marker outside a fence in Markdown', async () => {
     const text = `<!-- charcheck-disable-file -->\nprose ${EM_DASH} here`;
     expect(await scanText(text, 'README.md', [emDashRule], { assumeText: true })).toEqual([]);

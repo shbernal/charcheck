@@ -56,9 +56,8 @@ describe('the markdown scope', () => {
   });
 
   it('closes a fence only on one at least as long, which is why it takes a parser', async () => {
-    // The hand-rolled fence skipping in `src/suppress.ts` toggles on any fence and would end
-    // this block at the inner ```, exposing the rest as prose. That asymmetry is deliberate
-    // there and would be a false positive here.
+    // The same rule the hand-rolled fence skipping in `src/suppress.ts` follows: a shorter
+    // inner fence does not close the block, so the rest of it is code rather than prose.
     const source = `\`\`\`\`\nouter ${EM_DASH}\n\`\`\`\nstill code ${EM_DASH}\n\`\`\`\`\n`;
     expect(await scanText(source, 'a.md', [markdownRule])).toEqual([]);
   });

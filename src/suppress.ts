@@ -77,7 +77,13 @@ function suppress(
 }
 
 const MARKDOWN = /\.(md|markdown|mdx)$/i;
-const FENCE = /^\s{0,3}(```+|~~~+)/;
+/**
+ * A line that could open or close a fenced block: the run of markers, then the rest of it.
+ *
+ * The tail excludes the line endings rather than being anchored, so a file with CRLF endings
+ * reads the same as one without.
+ */
+const FENCE = /^\s{0,3}(`{3,}|~{3,})([^\r\n]*)/;
 
 export function parseSuppressions(text: string, file = ''): Suppressions {
   const result: Suppressions = {
@@ -92,18 +98,42 @@ export function parseSuppressions(text: string, file = ''): Suppressions {
   // any document explaining the suppression syntax silently suppresses itself, and the
   // file most likely to explain it is the one most worth checking.
   const markdown = MARKDOWN.test(file);
-  let fenced = false;
+  // The open fence's own marker run, since CommonMark closes a block only on the same
+  // character, repeated at least as many times, with nothing after it. Toggling on any fence
+  // line instead ended a tilde block at the first backtick line inside it, and every marker
+  // in the rest of the example took effect.
+  let fence: string | undefined;
 
   const sourceLines = text.split('\n');
   for (let i = 0; i < sourceLines.length; i += 1) {
     const lineNumber = i + 1;
     const source = sourceLines[i]!;
 
-    if (markdown && FENCE.test(source)) {
-      fenced = !fenced;
-      continue;
+    if (markdown) {
+      const match = FENCE.exec(source);
+      const marker = match?.[1] ?? '';
+      const rest = match?.[2] ?? '';
+      if (fence === undefined) {
+        // An info string may follow an opener, but a backtick fence's may not itself hold a
+        // backtick. That is what keeps an inline code span from opening a block.
+        if (match !== null && (marker.startsWith('~') || !rest.includes('`'))) {
+          fence = marker;
+          continue;
+        }
+      } else {
+        if (
+          match !== null &&
+          marker.startsWith(fence[0]!) &&
+          marker.length >= fence.length &&
+          rest.trim() === ''
+        ) {
+          fence = undefined;
+        }
+        // Either the closing line, which carries no marker of its own, or content inside the
+        // block, which is an example rather than an instruction.
+        continue;
+      }
     }
-    if (fenced) continue;
 
     MARKER.lastIndex = 0;
     let match: RegExpExecArray | null;

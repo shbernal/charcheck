@@ -57,6 +57,17 @@ against every entry that does. A patch release does not.
   written down in `--help` and in `docs/cli.md`: findings win, because a real violation is the
   more actionable of the two answers.
 
+- **A tilde fenced block in Markdown no longer ends at the first backtick line inside it.**
+  Suppression markers are skipped inside a fence, so a document explaining the syntax does not
+  silence itself. The fence tracking toggled on any fence line, without checking that the
+  closing marker matched the opening one, so a `~~~` block holding a triple-backtick example
+  ended early and every marker in the rest of it took effect.
+
+  Closing now follows CommonMark: the same character, repeated at least as many times, with
+  nothing but whitespace after it. An info string is read only on an opener, and a backtick
+  opener's may not itself hold a backtick. The `markdown` scope already had this from its
+  parser; it is the raw marker scan, which every scope shares, that was guessing.
+
 - **A positional path naming a directory now scans it.** `charcheck src/` reported a clean
   tree however many banned characters `src` held, and exited 0 while saying nothing. The
   restriction was matched against each file's own path, and a directory is no file's own
