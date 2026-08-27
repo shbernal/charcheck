@@ -114,6 +114,26 @@ against every entry that does. A patch release does not.
   compiles until it accounts for `comments`. Nothing that consumes a `Scope` value is
   affected, and no existing config changes meaning.
 
+- **A file is now parsed once per scope rather than once per rule that reaches it.** The
+  extractor was called inside the rule loop, so four Markdown rules that all matched meant
+  four passes over the same document and four `strings` rules meant four compiler invocations
+  of it. A scan grew linearly in the rule count where it should have been flat, and it grew
+  precisely when a config was doing its job, since a preset is several rules and any document
+  with prose in it trips several of them.
+
+  Over a 390 kB Markdown file with every rule matching:
+
+  | Rules | Before | After |
+  | ----- | ------ | ----- |
+  | 1     | 0.75s  | 0.81s |
+  | 4     | 1.97s  | 0.79s |
+  | 8     | 3.36s  | 0.86s |
+
+  The cheap match test in front of the parser is unchanged and still decides whether a scope
+  is parsed for a file at all, so a tree whose rules match nothing does no more work than
+  before. Findings, their order and their counts are identical; only the number of parses
+  moved.
+
 ## [0.3.0]
 
 ### Added

@@ -3,6 +3,21 @@ import type { FixFunction, Rule, Scope, Severity } from './types.js';
 
 export interface CompiledRule {
   id: string;
+  /**
+   * Shared by every concurrent scan of every file, because the compilation below is
+   * memoized on the `Rule` object. `lastIndex` is mutable state on that shared instance, so
+   * four things have to stay true together for it to be safe, and none of them is local to
+   * the place that would break:
+   *
+   * - `findMatches` runs to completion, which leaves `lastIndex` back at 0.
+   * - The chunk loop in `collectInChunk` is synchronous end to end, so no other file's scan
+   *   can interleave between two of its `exec` calls.
+   * - The one `await` in the scan's rule loop is the extractor call, and neither side of it
+   *   depends on `lastIndex` surviving.
+   * - Every reader sets `lastIndex` itself before its first `exec`.
+   *
+   * Cloning per scan would settle it, and would also undo the reason this cache exists.
+   */
   regex: RegExp;
   message: string | undefined;
   fix: string | FixFunction | undefined;

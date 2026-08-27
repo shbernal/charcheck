@@ -9,7 +9,7 @@ import type { SentenceIndex } from './sentence.js';
 import { getExtractor } from './scope/index.js';
 import { isSuppressed, parseSuppressions } from './suppress.js';
 import type { Suppressions } from './suppress.js';
-import type { Chunk, ExtractorOptions, Finding, Rule } from './types.js';
+import type { Chunk, ExtractorOptions, Finding, Rule, Scope } from './types.js';
 
 export interface ScanTextOptions extends ExtractorOptions {
   /** Skip the binary sniff, for callers that already know the text is text. */
@@ -101,6 +101,32 @@ export async function scanText(
     return isSuppressed(suppressions, ruleId, line);
   };
 
+  /**
+   * One parse per scope for this file, not one per rule that reaches it.
+   *
+   * The chunk list depends on the text, the file name and the extractor options, none of
+   * which vary inside one call, and nothing downstream mutates a chunk. Without this, four
+   * Markdown rules that all match meant four passes over the same document, so a run grew
+   * linearly in the rule count where it should have been flat, and it grew exactly when a
+   * config was doing its job.
+   *
+   * The pending promise is cached rather than the resolved array, so two rules of one scope
+   * arriving before the first parse settles still share it. A rejection is shared with them
+   * too, which is what a file the scope refuses wants: skipped once, not once per rule.
+   *
+   * Per call, deliberately. A cache spanning files would be keyed by text and would hold
+   * whole parse results for a tree the scan has already walked past.
+   */
+  const extracted = new Map<Scope, Promise<readonly Chunk[]>>();
+  const chunksFor = (scope: Scope): Promise<readonly Chunk[]> => {
+    let pending = extracted.get(scope);
+    if (pending === undefined) {
+      pending = getExtractor(scope)(source, file, extractorOptions);
+      extracted.set(scope, pending);
+    }
+    return pending;
+  };
+
   const findings: Finding[] = [];
   const context: ScanContext = {
     source,
@@ -120,7 +146,9 @@ export async function scanText(
     const matches = findMatches(compiled.regex, source);
     if (matches.starts.length === 0) continue;
 
-    const chunks = await getExtractor(compiled.scope)(source, file, extractorOptions);
+    // Asked only after the gate above. A scope must never be parsed for a file no rule
+    // matches in, which is the property that keeps this usable on a big tree.
+    const chunks = await chunksFor(compiled.scope);
 
     for (const chunk of chunks) {
       if (!mayMatch(matches, chunk)) continue;
