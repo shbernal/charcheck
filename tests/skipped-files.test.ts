@@ -41,7 +41,7 @@ vi.mock('../src/scan.js', async (importOriginal) => {
 });
 
 const { scan } = await import('../src/scan-files.js');
-const { EXIT_OK, EXIT_USAGE, run } = await import('../src/cli.js');
+const { EXIT_FINDINGS, EXIT_OK, EXIT_USAGE, run } = await import('../src/cli.js');
 const { rule } = await import('./helpers.js');
 
 let root: string;
@@ -115,6 +115,23 @@ describe('the cli, over a file no scope can read', () => {
 
     expect(code).toBe(EXIT_USAGE);
     expect(err.join('\n')).toContain('src/Card.tsx');
+    expect(err.join('\n')).toContain('not a pass');
+  });
+
+  it('lets a finding take the exit code, and still says the run was not a pass', async () => {
+    // Both are true at once: `src/plain.ts` holds a real finding and `src/Card.tsx` was never
+    // read. The finding is the more actionable answer, so it takes the code, and the warning
+    // is what stops that 1 from reading as the whole story.
+    await write('charcheck.config.json', config('src/**/*.{ts,tsx}'));
+    const err: string[] = [];
+    const code = await run([], {
+      cwd: root,
+      out: () => undefined,
+      err: (text) => err.push(text),
+      color: false,
+    });
+
+    expect(code).toBe(EXIT_FINDINGS);
     expect(err.join('\n')).toContain('not a pass');
   });
 

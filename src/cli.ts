@@ -204,6 +204,14 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
     warn(`${plural(baselined, 'finding')} accounted for by the baseline.`);
   }
 
+  // Said before anything decides the exit code, and after the report, so it is the last
+  // thing on the screen and is printed whatever the code turns out to be. Findings win the
+  // code below, so a run that both found errors and failed to read a file exits 1; this line
+  // is what stops that 1 from reading as the whole answer.
+  if (skipped.size > 0) {
+    warn(`${plural(skipped.size, 'file')} could not be scanned. This run is not a pass.`);
+  }
+
   const errors = findings.filter((finding) => finding.severity === 'error').length;
   const warnings = findings.length - errors;
   if (errors > 0) return EXIT_FINDINGS;
@@ -229,17 +237,16 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
     return EXIT_FINDINGS;
   }
   if (staleFails) return EXIT_FINDINGS;
-  // The fixes never settled, so the tree holds one arbitrary side of an argument between two
-  // rules. Said at the point it happened rather than here, since the findings above may
-  // already have decided the exit code; what this adds is that a run whose remaining
-  // findings are warnings, or none, still cannot be reported as clean. It is a config
-  // problem in the same sense an unreadable file is: the tool did not finish its job.
-  if (!outcome.converged) return EXIT_USAGE;
-  if (skipped.size > 0) {
-    // Reported after the findings, so the list is the last thing on the screen.
-    warn(`${String(skipped.size)} file(s) could not be scanned. This run is not a pass.`);
-    return EXIT_USAGE;
-  }
+  // An unfinished run: the fixes never settled, so the tree holds one arbitrary side of an
+  // argument between two rules, or a file a rule targets was never looked at. Both are
+  // config problems in the same sense, and both were already said on stderr at the point
+  // they happened. What this adds is that a run whose remaining findings are warnings, or
+  // none, still cannot be reported as clean.
+  //
+  // Reached only when nothing above failed, which is the precedence: a finding is the more
+  // actionable of the two answers, so it takes the exit code and the warnings explain the
+  // rest.
+  if (!outcome.converged || skipped.size > 0) return EXIT_USAGE;
   return EXIT_OK;
 }
 

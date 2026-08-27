@@ -51,6 +51,11 @@ runs that earn it without a usage error are the ones where the tool did not fini
 a file a rule targets that no scope could read, and fixes that never stopped changing. Both
 say so on stderr.
 
+Findings win when both are true. A run that reported an error and also failed to read a file
+exits `1`, because the error is the more actionable of the two answers. What the unfinished
+run adds is on stderr either way, printed after the report and before anything decides the
+code, so `1` is never the whole story in silence.
+
 ## `--quiet` and `--max-warnings`
 
 `--quiet` narrows the **list**, never the count. Warnings stop being enumerated, and go on

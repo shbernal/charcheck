@@ -46,6 +46,17 @@ against every entry that does. A patch release does not.
 
 ### Fixed
 
+- **A run that both found errors and failed to read a file now says the second part.** The
+  exit code was decided before the warning was printed, so an error-severity finding returned
+  `1` and the "this run is not a pass" line was never reached. Each unreadable file still
+  named itself as it was skipped, but the line that says the whole run was partial went
+  missing exactly when there was other bad news to bury it under.
+
+  The warning now goes out after the report and before anything decides the exit code, so it
+  is printed whatever the code turns out to be. The precedence itself is unchanged, and is now
+  written down in `--help` and in `docs/cli.md`: findings win, because a real violation is the
+  more actionable of the two answers.
+
 - **A positional path naming a directory now scans it.** `charcheck src/` reported a clean
   tree however many banned characters `src` held, and exited 0 while saying nothing. The
   restriction was matched against each file's own path, and a directory is no file's own

@@ -70,8 +70,9 @@ Flags banned characters in targeted parts of a repo, driven by one config.
   --version, --help
 
 Exit codes: 0 clean, 1 findings, 2 a usage or config error, a file a rule
-targets that no scope could read, or fixes that never settled. A file that was
-not looked at is reported on stderr and never counted as a pass.
+targets that no scope could read, or fixes that never settled. Findings win: a
+run that both found errors and failed to read a file exits 1, and says on
+stderr that it was not a pass.
 
 Globs in a config resolve against the config file's own directory, so running
 from a subdirectory gives identical results.`;
