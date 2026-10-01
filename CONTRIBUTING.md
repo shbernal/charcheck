@@ -149,6 +149,14 @@ Not closed forever, but reopening one needs a reason beyond preference:
   a whole file, so fixing one line of a half-staged file commits every other unstaged change
   in it. Per file, so the rest of the commit is still fixed, and there is no flag to override
   it: the honest answer to a dirty file is to stage or stash it.
+- **The bottom of the `typescript` peer range is tested, not raised.** The range is `>=5`
+  and the suite runs three compilers: 6 under the plain name, 5 under the
+  `typescript-floor` alias and 7 under `typescript-next`, and holds every syntax tree and
+  scanner reading to agree across them. The parser reader picks its API by capability, so
+  5 and 6 share one code path, and that is exactly why a break at 5 would go unnoticed
+  without its own compiler in the suite. Dependabot holds each alias at its major. Raising
+  the floor instead would be a break in the peer range, worth a minor when there is a reason
+  beyond the cost of one devDependency.
 - **`JsxUnsupportedError` stays exported.** It looks internal, since `scan` catches it and
   no CLI code names it, but `scan-files.ts` hands the instance to `ScanOptions.onSkipped`.
   An API consumer therefore receives one and can legitimately branch on it with

@@ -19,10 +19,15 @@ updates:
       # left behind. This holds the *devDependency* below 7 so that both readers keep a
       # compiler to run against, because the suite proves they agree by running them over one
       # corpus, and `tests/typescript-7.test.ts` asserts as much: a 7 under the
-      # `typescript-next` alias, a 5 or 6 under the plain name. Bumping this one to 7 would
+      # `typescript-next` alias, a 6 under the plain name. Bumping this one to 7 would
       # leave the syntax-tree reader with nothing to read.
       - dependency-name: typescript
         versions: ['>=7']
+      # The floor of the peer range, read through the same syntax tree reader as 6 so the
+      # suite proves the bottom of `>=5` rather than asserting it. Held at 5, or it stops
+      # being the floor; `tests/typescript-7.test.ts` asserts the major.
+      - dependency-name: typescript-floor
+        versions: ['>=6']
 
   - package-ecosystem: github-actions
     directory: /

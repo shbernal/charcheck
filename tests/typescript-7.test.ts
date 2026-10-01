@@ -1,12 +1,17 @@
 /**
  * TypeScript 7 moved the parser out of the package and left a scanner, so the two scopes
  * that read a script file, `strings` and `comments`, each read it a second way. The test
- * drives the real thing: `typescript-next` is an alias for
- * TypeScript 7 in this repo's devDependencies, installed alongside the TypeScript 5 the
- * rest of the suite uses, so both readers are exercised against the compilers they are for.
+ * drives the real thing: `typescript-next` is an alias for TypeScript 7 in this repo's
+ * devDependencies, installed alongside the TypeScript 6 the rest of the suite uses, so both
+ * readers are exercised against the compilers they are for.
  *
  * The property under test is that they agree. A second reader is only defensible if it
  * finds the same literals as the first, and the corpus below is where that is proved.
+ *
+ * `typescript-floor` is the bottom of the peer range, TypeScript 5, and runs the syntax tree
+ * reader a second time. The parser reader is chosen by capability rather than version, so 5
+ * and 6 take the same code path, which is the reason to believe 5 works and also the reason
+ * nobody would notice it stopping. Every agreement below therefore holds for three readers.
  */
 
 import { readdirSync, readFileSync } from 'node:fs';
@@ -23,8 +28,9 @@ import { resolveTokenKinds, UnknownTokenKindError } from '../src/scope/token-kin
 import { rule } from './helpers.js';
 
 // Imported through variables because TypeScript 7's `unstable` subpaths ship no types the
-// TypeScript 5 in this repo can resolve. The shapes are asserted below rather than declared.
-const ts5 = (await import('typescript')).default;
+// TypeScript 6 in this repo can resolve. The shapes are asserted below rather than declared.
+const ts6 = (await import('typescript')).default;
+const ts5 = (await import('typescript-floor' as string)).default as typeof ts6;
 const ts7 = (await import('typescript-next/unstable/ast' as string)) as {
   SyntaxKind: Record<string, unknown>;
   createScanner: Parameters<typeof scannerReader>[0]['createScanner'];
@@ -35,9 +41,11 @@ const ts7version = ((await import('typescript-next' as string)) as { version: st
 /** Real code, at a scale no hand-written case reaches. See the corpus describe below. */
 const PACKAGES = ['typescript', '@vue/compiler-sfc', 'tinyglobby', 'picocolors'];
 
-const fromAst = astReader(ts5);
+const fromAst = astReader(ts6);
+const fromFloor = astReader(ts5);
 const fromScanner = scannerReader(ts7 as Parameters<typeof scannerReader>[0]);
-const commentsFromAst = astCommentReader(ts5);
+const commentsFromAst = astCommentReader(ts6);
+const commentsFromFloor = astCommentReader(ts5);
 const commentsFromScanner = scannerCommentReader(ts7 as Parameters<typeof scannerReader>[0]);
 
 const read = (
@@ -48,9 +56,10 @@ const read = (
 ): string[] =>
   reader(source, language, 'a.ts', scope).map(({ start, end }) => source.slice(start, end));
 
-/** Both readers, over the same source, must produce the same slices. */
+/** Every reader, over the same source, must produce the same slices. */
 function agree(source: string, language: ScriptLanguage = 'ts'): string[] {
   const viaAst = read(fromAst, source, language);
+  expect(read(fromFloor, source, language)).toEqual(viaAst);
   expect(read(fromScanner, source, language)).toEqual(viaAst);
   return viaAst;
 }
@@ -58,14 +67,16 @@ function agree(source: string, language: ScriptLanguage = 'ts'): string[] {
 /** The same property for the `comments` scope, whose two readers share nothing but this. */
 function agreeOnComments(source: string, language: ScriptLanguage = 'ts'): string[] {
   const viaAst = read(commentsFromAst, source, language, 'comments');
+  expect(read(commentsFromFloor, source, language, 'comments')).toEqual(viaAst);
   expect(read(commentsFromScanner, source, language, 'comments')).toEqual(viaAst);
   return viaAst;
 }
 
 describe('the installed typescript', () => {
-  it('is a 7 under the alias and a 5 or 6 under the plain name', () => {
+  it('is a 7 and a 5 under the aliases and a 6 under the plain name', () => {
     expect(ts7version).toMatch(/^7\./);
-    expect(ts5.version).toMatch(/^[56]\./);
+    expect(ts5.version).toMatch(/^5\./);
+    expect(ts6.version).toMatch(/^6\./);
   });
 });
 
@@ -211,7 +222,9 @@ describe('the scanner reader, against the syntax tree reader', () => {
     expect(files.length).toBeGreaterThan(20);
     for (const file of files) {
       const source = readFileSync(file, 'utf8');
-      expect(read(fromScanner, source), file).toEqual(read(fromAst, source));
+      const viaAst = read(fromAst, source);
+      expect(read(fromFloor, source), file).toEqual(viaAst);
+      expect(read(fromScanner, source), file).toEqual(viaAst);
     }
   });
 
@@ -229,7 +242,9 @@ describe('the scanner reader, against the syntax tree reader', () => {
 
     for (const [name, source] of broken) {
       it(name, () => {
-        expect(read(fromScanner, source)).toEqual(read(fromAst, source));
+        const viaAst = read(fromAst, source);
+        expect(read(fromFloor, source)).toEqual(viaAst);
+        expect(read(fromScanner, source)).toEqual(viaAst);
       });
     }
   });
@@ -250,10 +265,9 @@ describe('the scanner reader, against the syntax tree reader, over real packages
   const require = createRequire(import.meta.url);
 
   for (const name of PACKAGES) {
-    // Parsing the compiler's nine megabytes twice takes seconds on its own, and the suite
-    // runs its files in parallel, so the default five is a budget this sits right on the
-    // edge of: it passes alone and times out under load. The work is genuinely long rather
-    // than slow by accident, so the timeout says so.
+    // Reading the compiler's nine megabytes three times takes seconds on its own, and the
+    // suite runs its files in parallel, so the default five is a budget this sits far past.
+    // The work is genuinely long rather than slow by accident, so the timeout says so.
     it(`agrees on ${name}`, () => {
       const file = require.resolve(name);
       const source = readFileSync(file, 'utf8');
@@ -261,8 +275,9 @@ describe('the scanner reader, against the syntax tree reader, over real packages
       // Compared as ranges rather than as slices: these files hold tens of thousands of
       // literals, and a failed slice comparison prints all of them.
       expect(viaAst.length).toBeGreaterThan(50);
+      expect(fromFloor(source, 'js', file, 'strings')).toEqual(viaAst);
       expect(fromScanner(source, 'js', file, 'strings')).toEqual(viaAst);
-    }, 30_000);
+    }, 60_000);
   }
 });
 
@@ -359,9 +374,9 @@ describe('the comment readers, against each other', () => {
     expect(files.length).toBeGreaterThan(20);
     for (const file of files) {
       const source = readFileSync(file, 'utf8');
-      expect(read(commentsFromScanner, source, 'ts', 'comments'), file).toEqual(
-        read(commentsFromAst, source, 'ts', 'comments'),
-      );
+      const viaAst = read(commentsFromAst, source, 'ts', 'comments');
+      expect(read(commentsFromFloor, source, 'ts', 'comments'), file).toEqual(viaAst);
+      expect(read(commentsFromScanner, source, 'ts', 'comments'), file).toEqual(viaAst);
     }
   });
 
@@ -374,12 +389,13 @@ describe('the comment readers, against each other', () => {
       const file = require.resolve(name);
       const source = readFileSync(file, 'utf8');
       const viaAst = commentsFromAst(source, 'js', file, 'comments');
+      expect(commentsFromFloor(source, 'js', file, 'comments')).toEqual(viaAst);
       expect(commentsFromScanner(source, 'js', file, 'comments')).toEqual(viaAst);
       // A package that ships built carries almost no comments, and that is worth running
       // too: a walk that invented one would be caught right here. The volume comes from the
       // compiler, which is the file in this list that is still readable source.
       if (name === 'typescript') expect(viaAst.length).toBeGreaterThan(1000);
-    }, 30_000);
+    }, 60_000);
   }
 });
 
@@ -403,7 +419,10 @@ describe('jsx, which a scanner cannot be told it is inside', () => {
   });
 
   it('is still read by the syntax tree reader, which has the context', () => {
-    expect(read(fromAst, `const a = <p>don't</p>; const s = "kept";`, 'tsx')).toEqual([`"kept"`]);
+    // The refusal tells the user to install 5 or 6 for JSX, so both are held to it.
+    for (const reader of [fromAst, fromFloor]) {
+      expect(read(reader, `const a = <p>don't</p>; const s = "kept";`, 'tsx')).toEqual([`"kept"`]);
+    }
   });
 
   it('is refused by the comment reader for the same reason', () => {

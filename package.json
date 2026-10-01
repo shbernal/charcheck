@@ -96,6 +96,7 @@
     "oxlint": "^1.85.0",
     "parse5": "^8.0.1",
     "typescript": "^6.0.3",
+    "typescript-floor": "npm:typescript@5.9.3",
     "typescript-next": "npm:typescript@7.0.2",
     "vitest": "^5.0.1"
   }
