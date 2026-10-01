@@ -20,6 +20,11 @@ against every entry that does. A patch release does not.
   meant to reach a sibling should move up to the directory both share. The write site
   refuses independently of the config check, warns, and fails the run.
 
+- **`scan` throws on options that used to produce a quiet wrong answer.** A `concurrency` of
+  `0` or below read no file and returned an empty result, the same thing a clean tree
+  returns; it, and any non-integer, is now a `RangeError`. A missing `rules` or `root` is a
+  `TypeError` that names the option, rather than one from inside the glob planner.
+
 ## [0.4.0]
 
 ### Added

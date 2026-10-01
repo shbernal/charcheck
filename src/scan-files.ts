@@ -30,7 +30,7 @@ export interface ScanOptions extends ExtractorOptions {
   files?: readonly string[];
   /** Added to every rule's own `exclude`. */
   ignore?: readonly string[];
-  /** How many files to read at once. */
+  /** How many files to read at once. A positive integer; anything else throws. */
   concurrency?: number;
   /**
    * Called for a file that could not be read, and for a rule whose globs matched nothing.
@@ -178,7 +178,10 @@ async function mapWithLimit<T, R>(
 ): Promise<R[]> {
   const results: R[] = [];
   let next = 0;
-  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+  // At least one worker for a non-empty list, whatever the limit says. No workers is not a
+  // slow scan, it is a scan that returns nothing and so reads as a clean one.
+  const count = items.length === 0 ? 0 : Math.max(1, Math.min(limit, items.length));
+  const workers = Array.from({ length: count }, async () => {
     for (let index = next++; index < items.length; index = next++) {
       results[index] = await run(items[index]!);
     }
@@ -188,12 +191,34 @@ async function mapWithLimit<T, R>(
 }
 
 /**
+ * The options the types already require, checked again for a JavaScript caller the types
+ * never reached. Each of these failed before as something worse than an error: a missing
+ * `rules` as a `TypeError` from deep in the glob planner, and a `concurrency` of zero as a
+ * scan that read nothing and returned a clean result.
+ */
+function checkOptions(options: ScanOptions): void {
+  if (typeof options.root !== 'string' || options.root.length === 0) {
+    throw new TypeError('scan: "root" must be a non-empty path. No working directory is assumed.');
+  }
+  if (!Array.isArray(options.rules)) {
+    throw new TypeError('scan: "rules" must be an array of rules.');
+  }
+  const { concurrency } = options;
+  if (concurrency !== undefined && !(Number.isInteger(concurrency) && concurrency > 0)) {
+    throw new RangeError(
+      `scan: "concurrency" must be a positive integer, got ${String(concurrency)}.`,
+    );
+  }
+}
+
+/**
  * Scan a tree, or a set of paths within one.
  *
  * The library half of the tool: it returns findings and nothing else. No output, no
  * colour, no exit code. Those belong to the CLI, which is just another caller of this.
  */
 export async function scan(options: ScanOptions): Promise<Finding[]> {
+  checkOptions(options);
   const plan = await planScan(options);
   const entries = [...plan.entries()];
 

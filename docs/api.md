@@ -17,6 +17,11 @@ expect(findings).toEqual([]);
 `root` is required rather than defaulting, so the library never depends on a working
 directory.
 
+`scan` checks its options before reading anything and throws on the ones that would
+otherwise produce a quiet wrong answer: a missing `root` or `rules` is a `TypeError`, and a
+`concurrency` that is not a positive integer is a `RangeError`. A `concurrency` of `0` used
+to read no file at all and return an empty, clean-looking result.
+
 ## `scanText`
 
 `scanText(text, file, rules)` scans a string with no filesystem involved at all. The `file`

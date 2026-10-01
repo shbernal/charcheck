@@ -298,3 +298,27 @@ describe('path normalization', () => {
     expect(relativeToRoot(path.join(root, 'x'), path.join(root, 'x', 'y', 'z.ts'))).toBe('y/z.ts');
   });
 });
+
+describe('options a JavaScript caller can get wrong', () => {
+  const rules = [rule({ id: 'md', include: ['docs/**/*.md'] })];
+
+  it('refuses a concurrency that would read nothing, rather than reporting clean', async () => {
+    for (const concurrency of [0, -1, 1.5, Number.NaN]) {
+      await expect(scan({ root, rules, concurrency })).rejects.toThrow(
+        /"concurrency" must be a positive integer/,
+      );
+    }
+  });
+
+  it('returns the same findings in the same order with one worker', async () => {
+    const all = [rule({ id: 'any', include: ['**/*.{md,ts}'] })];
+    expect(await scan({ root, rules: all, concurrency: 1 })).toEqual(
+      await scan({ root, rules: all }),
+    );
+  });
+
+  it('names a missing rules array rather than failing inside the planner', async () => {
+    // @ts-expect-error: the case a JavaScript caller reaches
+    await expect(scan({ root })).rejects.toThrow('scan: "rules" must be an array of rules.');
+  });
+});
