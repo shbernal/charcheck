@@ -16,6 +16,7 @@ import {
   scopeExtensions,
   scopeSupportsFile,
 } from '../src/scope/index.js';
+import { importPeer, MissingPeerDependencyError } from '../src/scope/missing-peer.js';
 
 describe('the scope registry', () => {
   it('names every scope and has an extractor for each', () => {
@@ -53,5 +54,33 @@ describe('the scope registry', () => {
       'micromark',
       'typescript',
     ]);
+  });
+});
+
+/**
+ * The lazy import every peer goes through. Only a module that cannot be found is a missing
+ * peer: anything else thrown while loading one is a broken install, and dressing it up as
+ * "not installed" would send the user to install what they already have.
+ */
+describe('importing a peer', () => {
+  const thrown = (code: string): Error => Object.assign(new Error('load failed'), { code });
+
+  it('names the package and the scope when the module cannot be found', async () => {
+    for (const code of ['ERR_MODULE_NOT_FOUND', 'MODULE_NOT_FOUND']) {
+      const failure = importPeer('micromark', 'markdown', () => Promise.reject(thrown(code)));
+      await expect(failure).rejects.toBeInstanceOf(MissingPeerDependencyError);
+      await expect(failure).rejects.toThrow('"markdown" scope needs the optional peer');
+    }
+  });
+
+  it('lets any other failure through as itself', async () => {
+    const broken = thrown('ERR_INVALID_PACKAGE_CONFIG');
+    await expect(importPeer('micromark', 'markdown', () => Promise.reject(broken))).rejects.toBe(
+      broken,
+    );
+  });
+
+  it('returns the module when it loads', async () => {
+    await expect(importPeer('micromark', 'markdown', () => Promise.resolve(42))).resolves.toBe(42);
   });
 });

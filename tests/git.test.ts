@@ -357,6 +357,24 @@ describe('--commit-msg', () => {
     expect((await cli(['--commit-msg', messagePath])).code).toBe(EXIT_OK);
   });
 
+  // `auto` leaves the message as the only record of which character git chose, and the
+  // scissors line written under `commit.verbose` is where it says so.
+  it('reads the comment character off the scissors line under core.commentChar=auto', async () => {
+    await git('config', 'core.commentChar', 'auto');
+    await message(
+      `clean subject\n` +
+        `; ------------------------ >8 ------------------------\n` +
+        `; a comment ${EM_DASH} here\n`,
+    );
+    expect((await cli(['--commit-msg', messagePath])).code).toBe(EXIT_OK);
+  });
+
+  it('falls back to # under core.commentChar=auto when there is no scissors line', async () => {
+    await git('config', 'core.commentChar', 'auto');
+    await message(`clean subject\n# a comment ${EM_DASH} here\n`);
+    expect((await cli(['--commit-msg', messagePath])).code).toBe(EXIT_OK);
+  });
+
   it('exits 0 when no rule targets a commit message', async () => {
     await write(
       'charcheck.config.json',

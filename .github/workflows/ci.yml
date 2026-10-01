@@ -37,3 +37,8 @@ jobs:
 
       # typecheck, lint, format, test, build, then charcheck over this repo.
       - run: pnpm run check
+
+      # The coverage thresholds in vitest.config.ts, on one platform: what the suite covers
+      # does not depend on where it runs, and the gate above already ran it on all three.
+      - if: matrix.os == 'ubuntu-latest'
+        run: pnpm run test:coverage

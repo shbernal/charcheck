@@ -26,6 +26,11 @@ CI runs exactly this on Linux, Windows and macOS. If it passes locally it should
 Individually: `pnpm run typecheck`, `pnpm run lint`, `pnpm run format` (check only, use
 `pnpm exec oxfmt` to fix), `pnpm test`, `pnpm run build`, `pnpm run lint:chars`.
 
+Coverage is not in that gate. `pnpm run test:coverage` runs the suite under v8 coverage and
+fails below the thresholds in `vitest.config.ts`, and CI runs it once, on Linux, after the
+gate. The thresholds are a ratchet set just under the measured numbers: raise them when a
+change raises coverage, and never lower them to make a change pass.
+
 Lint is [oxlint](https://oxc.rs/) and formatting is oxfmt. oxfmt covers JavaScript,
 TypeScript, Markdown, JSON and YAML, which is every text format in this repo, so the docs
 and this file are machine formatted. Do not hand-align a Markdown table or a JSON array;
