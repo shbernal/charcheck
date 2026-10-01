@@ -10,7 +10,7 @@ import { DEFAULT_IGNORE, filesForRule } from '../scan-files.js';
 import { plural } from '../plural.js';
 import { peersForScopes, scopeSupportsFile } from '../scope/index.js';
 import type { Rule } from '../types.js';
-import { createGlobAnonymizer } from './anonymize.js';
+import { createGlobAnonymizer, createPatternAnonymizer } from './anonymize.js';
 
 /**
  * The body of a bug report about charcheck itself, ready for `gh issue create --body-file`.
@@ -100,8 +100,10 @@ function patterns(values: readonly string[], anonymize: (pattern: string) => str
   return values.map((value) => `\`${anonymize(value)}\``).join(', ');
 }
 
-function chars(rule: Rule): string {
-  if (rule.pattern !== undefined) return `- pattern: \`${escapeUnicode(rule.pattern)}\``;
+function chars(rule: Rule, anonymizePattern: (pattern: string) => string): string {
+  if (rule.pattern !== undefined) {
+    return `- pattern: \`${escapeUnicode(anonymizePattern(rule.pattern))}\``;
+  }
   return `- chars: ${(rule.chars ?? []).map((char) => `\`${escapeUnicode(char)}\``).join(', ')}`;
 }
 
@@ -170,6 +172,7 @@ async function describeRule(
   loaded: LoadedConfig,
   ignore: readonly string[],
   anonymize: (pattern: string) => string,
+  anonymizePattern: (pattern: string) => string,
 ): Promise<string> {
   // Rules are named by position, never by id. An id is local to whoever wrote the config and
   // means nothing in an issue somebody else reads, and the reporter maps a number back by
@@ -179,7 +182,7 @@ async function describeRule(
     `#### rule ${String(index + 1)}`,
     '',
     `- scope: \`${rule.scope ?? 'raw'}\``,
-    chars(rule),
+    chars(rule, anonymizePattern),
     `- severity: \`${rule.severity ?? 'error'}\``,
     `- fix: ${rule.fix === undefined ? 'none' : typeof rule.fix === 'function' ? 'a function' : 'a replacement string'}`,
     `- include: ${patterns(rule.include, anonymize)}`,
@@ -224,12 +227,14 @@ export interface IssueReportOptions {
 
 const ANONYMIZED_NOTE = `Directory and file names in the globs below are placeholders, numbered in order of first
 appearance and shared between rules, so two rules that name the same directory still look
-alike. Everything that decides what a pattern matches is verbatim: a double star against a
-single one, the segment count, brace expansions, the extension, and the leading dot on a
-dotted directory. The shape is the diagnostic and the real names are not needed, so there is
-no need to ask for them.`;
+alike. Everything that decides what a glob matches is verbatim: a double star against a
+single one, the segment count, brace expansions, the final extension, conventional parts such
+as \`.d\` and \`.test\`, and the leading dot on a dotted directory. The literal text of a
+\`pattern\` is replaced the same way, keeping its escapes, character classes, quantifiers and
+groups. The shape is the diagnostic and the real names are not needed, so there is no need to
+ask for them.`;
 
-const VERBATIM_NOTE = `Globs are printed as written, because this report was produced with \`--verbatim\`.`;
+const VERBATIM_NOTE = `Globs and patterns are printed as written, because this report was produced with \`--verbatim\`.`;
 
 /**
  * The placeholders, worded as the issue form words them. Left for the reporter to fill in,
@@ -269,8 +274,9 @@ export async function formatIssueReport(options: IssueReportOptions): Promise<st
 
   // Identity when the reporter opted out, which is the only way a real name reaches the
   // output. It is still one renamer for the whole report either way.
-  const anonymize =
-    options.verbatim === true ? (pattern: string): string => pattern : createGlobAnonymizer();
+  const verbatim = (pattern: string): string => pattern;
+  const anonymize = options.verbatim === true ? verbatim : createGlobAnonymizer();
+  const anonymizePattern = options.verbatim === true ? verbatim : createPatternAnonymizer();
 
   const peers = peersFor(rules);
   const versions = await Promise.all(peers.map((peer) => peerVersion(loaded.root, peer)));
@@ -286,7 +292,9 @@ export async function formatIssueReport(options: IssueReportOptions): Promise<st
   const baselineNote = await describeBaseline(options.baseline);
 
   const resolved = await Promise.all(
-    rules.map((rule, index) => describeRule(rule, index, loaded, ignore, anonymize)),
+    rules.map((rule, index) =>
+      describeRule(rule, index, loaded, ignore, anonymize, anonymizePattern),
+    ),
   );
 
   return [

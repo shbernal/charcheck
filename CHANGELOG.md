@@ -9,6 +9,15 @@ against every entry that does. A patch release does not.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`--report-issue` no longer leaks names through a compound file suffix or a `pattern`.**
+  Everything after the first inner dot of a filename was kept verbatim, so
+  `*.acme-internal.ts` printed as written; now only the final extension and a short list of
+  conventions such as `.d` and `.test` survive. A rule's `pattern` was printed as written and
+  now has its literal text replaced the way a glob's names are, keeping all of its syntax.
+  `--verbatim` still prints both as written.
+
 ### Changed
 
 - **An `include` pattern that reaches outside the config's directory is now a config error,

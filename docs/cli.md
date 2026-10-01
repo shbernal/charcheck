@@ -257,23 +257,32 @@ is a usage error rather than a flag that quietly does nothing.
 A glob carries real names. `docs/acme-migration/**` is exactly the pattern that ends up in a
 working config, and this tracker is public. So the output is anonymized at the source, always:
 
-| Field                                          | Treatment                                                  |
-| ---------------------------------------------- | ---------------------------------------------------------- |
-| `include`, `exclude`, top-level `ignore`       | Names replaced positionally, all glob syntax kept verbatim |
-| rule `id`                                      | Replaced by the rule's position: `rule 1`, `rule 2`        |
-| rule `message`                                 | Omitted, since it never affects what is matched            |
-| `scope`, `chars`, `pattern`, `severity`, `fix` | Verbatim. These are the report                             |
-| Matched file count                             | Verbatim. A number leaks nothing                           |
-| Config path                                    | Its basename alone                                         |
-| Findings and file paths                        | Never included. This reports configuration, not results    |
+| Field                                    | Treatment                                                                       |
+| ---------------------------------------- | ------------------------------------------------------------------------------- |
+| `include`, `exclude`, top-level `ignore` | Names replaced positionally, all glob syntax kept verbatim                      |
+| rule `pattern`                           | Literal text replaced positionally, all regular expression syntax kept verbatim |
+| rule `id`                                | Replaced by the rule's position: `rule 1`, `rule 2`                             |
+| rule `message`                           | Omitted, since it never affects what is matched                                 |
+| `scope`, `chars`, `severity`, `fix`      | Verbatim. These are the report                                                  |
+| Matched file count                       | Verbatim. A number leaks nothing                                                |
+| Config path                              | Its basename alone                                                              |
+| Findings and file paths                  | Never included. This reports configuration, not results                         |
 
 The rename is **structure preserving**, because the diagnostic value of a glob is its shape
 rather than its words. `site/.vitepress/**/*.vue` becomes `dir1/.dir2/**/*.vue`: a double
 star stays distinct from a single one, the segment count stays, brace expansions stay, the
-extension stays, and above all the leading dot stays. A dotted directory is only entered when
+final extension stays, and above all the leading dot stays. Every other dotted part of a name
+is a name too, so `*.acme-internal.ts` becomes `*.file1.ts`; only a short list of conventions,
+such as the `.d` in `.d.ts` and the `.test` in `.test.ts`, is kept as written. A dotted directory is only entered when
 a pattern names it, which is the commonest reason a report gets filed at all. Placeholders
 are numbered in order of first appearance and shared across rules, so two rules that name the
 same directory still look alike, and running the rename over its own output changes nothing.
+
+A `pattern` gets the same treatment, since `Acme Internal` in a regular expression names a
+company exactly as it would in a glob. Its escapes, character classes, quantifiers, anchors
+and groups stay as written, along with any banned character written as itself, and each run
+of literal text between them becomes `text1`, `text2`, shared across rules. `--verbatim`
+prints patterns as written, as it does globs.
 
 Characters are printed as `\uXXXX` escapes rather than as themselves, for the same reason the
 form asks reporters to do it: a zero width space does not survive a clipboard, a browser, or

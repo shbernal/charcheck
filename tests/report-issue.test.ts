@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { EM_DASH, ZERO_WIDTH_SPACE } from '../src/chars.js';
 import { EXIT_OK, EXIT_USAGE, run } from '../src/cli.js';
 import type { CliIo } from '../src/cli.js';
-import { createGlobAnonymizer } from '../src/report/anonymize.js';
+import { createGlobAnonymizer, createPatternAnonymizer } from '../src/report/anonymize.js';
 
 describe('glob anonymization', () => {
   it('renames directory segments and keeps everything else', () => {
@@ -45,6 +45,19 @@ describe('glob anonymization', () => {
     expect(anonymize('acme/notes.test.ts')).toBe('dir2/file3.test.ts');
   });
 
+  it('replaces every dotted part of a filename but the extension and the conventions', () => {
+    const anonymize = createGlobAnonymizer();
+    expect(anonymize('src/**/*.acme-internal.ts')).toBe('dir1/**/*.file2.ts');
+    expect(anonymize('docs/project-zephyr.notes.md')).toBe('dir3/file4.file5.md');
+    expect(anonymize('src/**/*.d.ts')).toBe('dir1/**/*.d.ts');
+    expect(anonymize('tests/**/*.test.ts')).toBe('dir6/**/*.test.ts');
+  });
+
+  it('treats every dotted part of a directory as a name', () => {
+    const anonymize = createGlobAnonymizer();
+    expect(anonymize('packages/acme.web/**')).toBe('dir1/dir2.dir3/**');
+  });
+
   it('leaves a virtual pattern alone, since it names no directory', () => {
     const anonymize = createGlobAnonymizer();
     expect(anonymize('<commit-msg>')).toBe('<commit-msg>');
@@ -59,11 +72,44 @@ describe('glob anonymization', () => {
 
   it('is idempotent, so anonymizing an anonymized report changes nothing', () => {
     const first = createGlobAnonymizer();
-    const patterns = ['site/.vitepress/**/*.vue', 'site/theme/*.ts', '{a,b}/c.md', '<commit-msg>'];
+    const patterns = [
+      'site/.vitepress/**/*.vue',
+      'site/theme/*.ts',
+      '{a,b}/c.md',
+      '<commit-msg>',
+      'x/y.acme.d.ts',
+    ];
     const once = patterns.map(first);
 
     const second = createGlobAnonymizer();
     expect(once.map(second)).toEqual(once);
+  });
+});
+
+describe('pattern anonymization', () => {
+  it('replaces the literal text and keeps the syntax', () => {
+    const anonymize = createPatternAnonymizer();
+    expect(anonymize(String.raw`Acme Internal\u2014`)).toBe(String.raw`text1\u2014`);
+    expect(anonymize(String.raw`^(?:Acme|Zephyr)\s+[\u2013\u2014]{2,}$`)).toBe(
+      String.raw`^(?:text2|text3)\s+[\u2013\u2014]{2,}$`,
+    );
+  });
+
+  it('keeps a banned character written as itself, and the letters around it go', () => {
+    const anonymize = createPatternAnonymizer();
+    expect(anonymize(`Acme ${EM_DASH}`)).toBe(`text1${EM_DASH}`);
+    expect(anonymize('Z\u00fcrich')).toBe('text2');
+  });
+
+  it('gives a word repeated across rules the same placeholder', () => {
+    const anonymize = createPatternAnonymizer();
+    expect(anonymize('acme.')).toBe('text1.');
+    expect(anonymize('(?<x>acme)')).toBe('(?<text2>text1)');
+  });
+
+  it('is idempotent', () => {
+    const once = [String.raw`Acme\d+`, '[a-z]+ widget'].map(createPatternAnonymizer());
+    expect(once.map(createPatternAnonymizer())).toEqual(once);
   });
 });
 
@@ -306,6 +352,19 @@ describe('--report-issue', () => {
     expect(result.out).toContain('- chars: `\\u2014`');
     expect(result.out).not.toContain(EM_DASH);
     expect(result.out).not.toContain(ZERO_WIDTH_SPACE);
+  });
+
+  it('replaces the words in a pattern, unless asked not to', async () => {
+    await write(
+      'charcheck.config.json',
+      JSON.stringify({ rules: [{ id: 'p', pattern: 'Zephyrcorp \\u2014', include: ['**/*.md'] }] }),
+    );
+    const anonymized = await cli(['--report-issue']);
+    expect(anonymized.out).toContain('- pattern: `text1\\u2014`');
+    expect(anonymized.out).not.toContain('Zephyrcorp');
+
+    const verbatim = await cli(['--report-issue', '--verbatim']);
+    expect(verbatim.out).toContain('- pattern: `Zephyrcorp \\u2014`');
   });
 
   it('keeps the real globs under --verbatim, and says that it did', async () => {
