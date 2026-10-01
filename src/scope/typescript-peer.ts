@@ -22,7 +22,7 @@ import { resolveTokenKinds } from './token-kinds.js';
  * ways: TypeScript 5 and 6 expose a parser and are read through their syntax tree, while
  * TypeScript 7 exposes only a scanner and is read token by token.
  */
-export const SUPPORTED_TYPESCRIPT = '>=5';
+const SUPPORTED_TYPESCRIPT = '>=5';
 
 /** Where TypeScript 7 moved the scanner to. Unstable upstream, and pinned to nothing here. */
 const MODERN_AST_MODULE = 'typescript/unstable/ast';
@@ -71,7 +71,7 @@ export interface ScanningApi {
 }
 
 /** What the installed package turned out to be, once the capability test has run. */
-export type TypeScriptApi =
+type TypeScriptApi =
   | { kind: 'parser'; parser: typeof typescript }
   | { kind: 'scanner'; scanning: ScanningApi };
 

@@ -166,7 +166,7 @@ function endsHeader(kinds: TokenKinds): Set<number> {
 }
 
 /** What a walk hands back. Every offset is absolute, and both are called in source order. */
-export interface TokenCollector {
+interface TokenCollector {
   /** One token, after any re-scan, so a regular expression arrives whole. */
   token?: (kind: number, start: number, end: number) => void;
   /**
@@ -186,11 +186,7 @@ export interface TokenCollector {
  *
  * `scanner` must already be positioned at the start of `source` with trivia skipped.
  */
-export function walkTokens(
-  scanner: TokenScanner,
-  kinds: TokenKinds,
-  collect: TokenCollector,
-): void {
+function walkTokens(scanner: TokenScanner, kinds: TokenKinds, collect: TokenCollector): void {
   const expressionEnders = endsExpression(kinds);
   const heads = clauseHeads(kinds);
   const blockOpeners = opensBlock(kinds);

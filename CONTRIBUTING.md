@@ -19,17 +19,21 @@ which is what lets a user's `charcheck.config.ts` load with no bundler and no lo
 pnpm run check
 ```
 
-That runs typecheck, lint, format, tests, build, and then charcheck over this repo, in that
-order. The build sits in the middle because the self-check runs the freshly built binary.
+That runs typecheck, lint, knip, format, tests, build, and then charcheck over this repo, in
+that order. The build sits in the middle because the self-check runs the freshly built binary.
 CI runs exactly this on Linux, Windows and macOS. If it passes locally it should pass there.
 
-Individually: `pnpm run typecheck`, `pnpm run lint`, `pnpm run format` (check only, use
+Individually: `pnpm run typecheck`, `pnpm run lint`, `pnpm run knip`, `pnpm run format` (check only, use
 `pnpm exec oxfmt` to fix), `pnpm test`, `pnpm run build`, `pnpm run lint:chars`.
 
 Coverage is not in that gate. `pnpm run test:coverage` runs the suite under v8 coverage and
 fails below the thresholds in `vitest.config.ts`, and CI runs it once, on Linux, after the
 gate. The thresholds are a ratchet set just under the measured numbers: raise them when a
 change raises coverage, and never lower them to make a change pass.
+
+[knip](https://knip.dev/) fails on an export nothing imports. Its entry points in
+`knip.json` are the three package exports and the CLI, so anything reachable only from inside
+its own module should not be exported, and a new entry point has to be added there.
 
 Lint is [oxlint](https://oxc.rs/) and formatting is oxfmt. oxfmt covers JavaScript,
 TypeScript, Markdown, JSON and YAML, which is every text format in this repo, so the docs

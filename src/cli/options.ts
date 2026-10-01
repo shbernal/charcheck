@@ -6,7 +6,7 @@
 import { parseArgs } from 'node:util';
 
 const FORMATS = ['pretty', 'json', 'sarif'] as const;
-export type Format = (typeof FORMATS)[number];
+type Format = (typeof FORMATS)[number];
 
 export const HELP = `charcheck [paths...]
 

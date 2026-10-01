@@ -7,7 +7,7 @@ import { readTextFile } from './read.js';
 import { groupByFile } from './report/summary.js';
 import type { Finding } from './types.js';
 
-export interface FixOutcome {
+interface FixOutcome {
   /** Findings actually rewritten. */
   fixed: number;
   files: string[];
@@ -102,7 +102,7 @@ export async function fixFiles(
  * rules reaches it, low enough that a pair of rules arguing costs a moment rather than a
  * hung hook.
  */
-export const MAX_FIX_PASSES = 10;
+const MAX_FIX_PASSES = 10;
 
 export interface FixpointOutcome {
   /** The findings as the last pass left them, ready to report. */

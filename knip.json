@@ -1,0 +1,11 @@
+{
+  "$schema": "https://unpkg.com/knip@latest/schema.json",
+  "entry": [
+    "src/index.ts",
+    "src/config/index.ts",
+    "src/presets/index.ts",
+    "src/cli.ts",
+    "charcheck.config.js"
+  ],
+  "project": ["src/**/*.ts", "tests/**/*.ts", "*.config.{js,ts}"]
+}

@@ -5,7 +5,11 @@ import { toPosix } from './paths.js';
 
 const run = promisify(execFile);
 
-export class GitError extends Error {
+/**
+ * Named so a refusal reads as git's in a message. Not exported: the CLI reports it as a usage
+ * error, and no library entry point runs git, so there is no caller to catch it by type.
+ */
+class GitError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'GitError';

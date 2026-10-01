@@ -35,7 +35,7 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # typecheck, lint, format, test, build, then charcheck over this repo.
+      # typecheck, lint, knip, format, test, build, then charcheck over this repo.
       - run: pnpm run check
 
       # The coverage thresholds in vitest.config.ts, on one platform: what the suite covers

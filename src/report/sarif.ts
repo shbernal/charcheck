@@ -7,7 +7,7 @@ import type { ListOptions } from './summary.js';
  * The smallest SARIF 2.1.0 document GitHub code scanning accepts, so findings become
  * annotations on a pull request. One rule per config rule id, one result per finding.
  */
-export const SARIF_VERSION = '2.1.0';
+const SARIF_VERSION = '2.1.0';
 
 const SCHEMA = 'https://json.schemastore.org/sarif-2.1.0.json';
 

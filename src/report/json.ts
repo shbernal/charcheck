@@ -6,7 +6,7 @@ import type { ListOptions, Summary } from './summary.js';
  * Bumped only for a breaking change to the shape below. Versioned from the first release
  * so a consumer parsing this output has something to branch on later.
  */
-export const JSON_SCHEMA_VERSION = 1;
+const JSON_SCHEMA_VERSION = 1;
 
 export interface JsonOptions extends ListOptions {
   /**
@@ -17,7 +17,7 @@ export interface JsonOptions extends ListOptions {
   suppressed?: readonly Finding[];
 }
 
-export interface JsonReport {
+interface JsonReport {
   schemaVersion: number;
   /** What the run reported. Under `--quiet` this holds the errors alone. */
   findings: Finding[];
@@ -25,7 +25,7 @@ export interface JsonReport {
   summary: Summary;
 }
 
-export function toJsonReport(findings: readonly Finding[], options: JsonOptions = {}): JsonReport {
+function toJsonReport(findings: readonly Finding[], options: JsonOptions = {}): JsonReport {
   return {
     schemaVersion: JSON_SCHEMA_VERSION,
     findings: [...listed(findings, options)],

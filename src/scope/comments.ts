@@ -99,7 +99,7 @@ export function scannerCommentReader(ast: ScanningApi): CommentReader {
 }
 
 /** See `loadLiteralReader`, which picks its reader the same way. */
-export const loadCommentReader = scriptReader<CommentReader>({
+const loadCommentReader = scriptReader<CommentReader>({
   fromParser: astCommentReader,
   fromScanner: scannerCommentReader,
 });

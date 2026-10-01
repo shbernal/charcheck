@@ -13,7 +13,6 @@ import {
   scriptReader,
 } from './typescript-peer.js';
 
-export { resetTypeScript, SUPPORTED_TYPESCRIPT } from './typescript-peer.js';
 export type { ScriptLanguage } from './typescript-peer.js';
 
 /** Extensions the `strings` scope can parse. Anything else is a config error. */
@@ -67,7 +66,7 @@ export function scannerReader(ast: ScanningApi): LiteralReader {
  * Loads the peer and picks the reader by what it can do, not by what it calls itself, so a
  * major that keeps an API keeps working without a release here.
  */
-export const loadLiteralReader = scriptReader<LiteralReader>({
+const loadLiteralReader = scriptReader<LiteralReader>({
   fromParser: astReader,
   fromScanner: scannerReader,
 });

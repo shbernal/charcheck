@@ -58,11 +58,12 @@
     "build": "tsc -b tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint --max-warnings 0",
+    "knip": "knip",
     "format": "oxfmt --check",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "lint:chars": "node dist/cli.js",
-    "check": "pnpm run typecheck && pnpm run lint && pnpm run format && pnpm run test && pnpm run build && pnpm run lint:chars",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run knip && pnpm run format && pnpm run test && pnpm run build && pnpm run lint:chars",
     "prepack": "pnpm run build"
   },
   "dependencies": {
@@ -93,6 +94,7 @@
     "@types/node": "^26.6.2",
     "@vitest/coverage-v8": "^5.0.3",
     "@vue/compiler-sfc": "^3.5.43",
+    "knip": "^6.39.0",
     "micromark": "^4.0.2",
     "oxfmt": "^0.70.0",
     "oxlint": "^1.85.0",
