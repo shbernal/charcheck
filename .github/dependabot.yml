@@ -28,6 +28,9 @@ updates:
       # being the floor; `tests/typescript-7.test.ts` asserts the major.
       - dependency-name: typescript-floor
         versions: ['>=6']
+      # Both aliases are bumped by hand. Dependabot does not reliably follow an `npm:` alias,
+      # so a new 7.x for `typescript-next` or 5.x for `typescript-floor` will not open a pull
+      # request on its own, and the ignore above is a guard rather than a promise of updates.
 
   - package-ecosystem: github-actions
     directory: /

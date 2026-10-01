@@ -16,11 +16,19 @@ jobs:
   check:
     # Three platforms on purpose: this tool reads the git index, resolves globs to paths,
     # and asserts on line endings, which are the three things that differ across them.
+    name: check (${{ matrix.os }}, node ${{ matrix.node }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        node: [24.x]
+        # The newest Node as well, on one platform. The config loader rests on native type
+        # stripping, which is the feature most likely to move between majors, and `engines`
+        # promises every major from 24 on.
+        include:
+          - os: ubuntu-latest
+            node: current
 
     steps:
       - uses: actions/checkout@v7
@@ -30,7 +38,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.x
+          node-version: ${{ matrix.node }}
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
@@ -38,7 +46,11 @@ jobs:
       # typecheck, lint, knip, format, test, build, then charcheck over this repo.
       - run: pnpm run check
 
-      # The coverage thresholds in vitest.config.ts, on one platform: what the suite covers
-      # does not depend on where it runs, and the gate above already ran it on all three.
-      - if: matrix.os == 'ubuntu-latest'
+      # The coverage thresholds in vitest.config.ts, once: what the suite covers does not
+      # depend on where it runs, and the gate above already ran it everywhere.
+      - if: matrix.os == 'ubuntu-latest' && matrix.node == '24.x'
         run: pnpm run test:coverage
+
+      # Known advisories in the dependency tree, once for the same reason.
+      - if: matrix.os == 'ubuntu-latest' && matrix.node == '24.x'
+        run: pnpm audit --audit-level high

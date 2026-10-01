@@ -45,7 +45,7 @@ export function applyFixes(
 
   const fixable = findings
     .filter((finding) => finding.fixable && finding.replacement !== undefined)
-    .sort((a, b) => b.offset - a.offset);
+    .toSorted((a, b) => b.offset - a.offset);
 
   if (fixable.length === 0) return text;
 

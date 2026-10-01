@@ -161,7 +161,7 @@ function keyFindings(findings: readonly Finding[], sources: ReadonlyMap<string, 
   const stripped = new Map<string, string>();
   const counts = new Map<string, number>();
 
-  return [...findings].sort(byPosition).map((finding) => {
+  return findings.toSorted(byPosition).map((finding) => {
     if (!stripped.has(finding.file)) {
       const source = sources.get(finding.file);
       if (source !== undefined) stripped.set(finding.file, stripBom(source).text);
@@ -201,7 +201,7 @@ export function entriesFor(
     return { file: finding.file, ruleId: finding.ruleId, context, ordinal };
   });
 
-  return entries.sort(byEntry);
+  return entries.toSorted(byEntry);
 }
 
 /**
@@ -264,11 +264,11 @@ export function partition(
   const stale = [...remaining.values()]
     .flat()
     .filter((entry) => scopeCovers(scope, entry.file))
-    .sort(byEntry);
+    .toSorted(byEntry);
 
   return {
-    reported: reported.sort(byPosition),
-    baselined: baselined.sort(byPosition),
+    reported: reported.toSorted(byPosition),
+    baselined: baselined.toSorted(byPosition),
     stale,
   };
 }
@@ -352,7 +352,7 @@ export async function readBaseline(filepath: string): Promise<Baseline | undefin
  * rather than one reflowed blob.
  */
 export function serializeBaseline(entries: readonly BaselineEntry[]): string {
-  const sorted = [...entries].sort(byEntry);
+  const sorted = entries.toSorted(byEntry);
   const lines = sorted.map((entry) => `    ${JSON.stringify(entry)}`).join(',\n');
   const body = sorted.length === 0 ? '  "entries": []' : `  "entries": [\n${lines}\n  ]`;
   return `{\n  "version": ${String(BASELINE_VERSION)},\n${body}\n}\n`;

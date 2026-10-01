@@ -70,7 +70,7 @@ export interface ScanOutcome {
  * concurrent, so a report over them would otherwise be ordered by how fast a disk answered.
  */
 function sortFindings(findings: Finding[]): Finding[] {
-  return findings.sort(byPosition);
+  return findings.toSorted(byPosition);
 }
 
 /**
@@ -346,7 +346,7 @@ export async function runStaged(
         .map((finding) => finding.file)
         .filter((file) => dirty.has(file)),
     );
-    for (const file of [...hold].sort()) {
+    for (const file of [...hold].toSorted()) {
       warn(
         `not fixing ${file}: it differs from what is staged, and fixing it means staging ` +
           `the whole file, which would put your unstaged changes there into the commit. ` +

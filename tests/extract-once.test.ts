@@ -66,7 +66,7 @@ describe('parsing a file for its rules', () => {
       rule({ id: 'md-en', chars: [EN_DASH], scope: 'markdown' }),
     ]);
 
-    expect([...parses.scopes].sort()).toEqual(['markdown', 'raw']);
+    expect([...parses.scopes].toSorted()).toEqual(['markdown', 'raw']);
   });
 
   it('does not parse for a rule that matches nothing', async () => {

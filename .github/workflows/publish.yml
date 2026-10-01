@@ -93,8 +93,12 @@ jobs:
             exit 1
           fi
 
-      # typecheck, lint, format, test, build, then charcheck over this repo.
+      # typecheck, lint, knip, format, test, build, then charcheck over this repo.
       - run: pnpm run check
+
+      # A known advisory in what this release would ship is cheaper to find here than in a
+      # consumer's CI, which is where it lands once published.
+      - run: pnpm audit --audit-level high
 
   publish:
     needs: verify

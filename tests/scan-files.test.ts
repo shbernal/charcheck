@@ -38,7 +38,7 @@ describe('scan', () => {
       rules: [rule({ id: 'md', include: ['**/*.md'] })],
     });
     expect(findings.map((f) => f.file)).toEqual(
-      ['docs/guide.md', 'dist/built.md', 'src/nested/deep.md'].sort(),
+      ['docs/guide.md', 'dist/built.md', 'src/nested/deep.md'].toSorted(),
     );
   });
 
@@ -78,7 +78,7 @@ describe('scan', () => {
         rule({ id: 'second', include: ['docs/**'] }),
       ],
     });
-    expect(findings.map((f) => f.ruleId).sort()).toEqual(['first', 'second']);
+    expect(findings.map((f) => f.ruleId).toSorted()).toEqual(['first', 'second']);
   });
 
   it('restricts to an explicit file list, still filtered by the globs', async () => {

@@ -63,7 +63,7 @@ export function compileRule(rule: Rule): CompiledRule {
   }
 
   const source = rule.chars
-    ? [...rule.chars].sort(byLengthThenValue).map(escapeRegExp).join('|')
+    ? rule.chars.toSorted(byLengthThenValue).map(escapeRegExp).join('|')
     : (rule.pattern as string);
 
   let regex: RegExp;

@@ -35,7 +35,13 @@ change raises coverage, and never lower them to make a change pass.
 `knip.json` are the three package exports and the CLI, so anything reachable only from inside
 its own module should not be exported, and a new entry point has to be added there.
 
-Lint is [oxlint](https://oxc.rs/) and formatting is oxfmt. oxfmt covers JavaScript,
+Lint is [oxlint](https://oxc.rs/), with the `correctness` and `suspicious` categories on and
+one rule off: `unicorn/consistent-function-scoping`, because a small helper written beside its
+only use, inside the function or test that needs it, is how this codebase keeps a reason next
+to the code it explains. `pedantic` and `restriction` are not adopted. A rule that fires on
+purpose at one site is disabled at that site, with the reason on the line above.
+
+Formatting is oxfmt. oxfmt covers JavaScript,
 TypeScript, Markdown, JSON and YAML, which is every text format in this repo, so the docs
 and this file are machine formatted. Do not hand-align a Markdown table or a JSON array;
 both will be rewritten. Anything git ignores is skipped, so an ignored path needs no entry

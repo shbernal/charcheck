@@ -121,7 +121,7 @@ function attributeOf(node: Node, name: string): string | undefined {
 function joinContiguous(spans: Span[], text: string): Chunk[] {
   const joined: Span[] = [];
 
-  for (const span of spans.sort((a, b) => a.start - b.start)) {
+  for (const span of spans.toSorted((a, b) => a.start - b.start)) {
     const previous = joined.at(-1);
     if (previous && previous.end === span.start) previous.end = span.end;
     else joined.push({ ...span });

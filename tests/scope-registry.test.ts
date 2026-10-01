@@ -20,7 +20,7 @@ import { importPeer, MissingPeerDependencyError } from '../src/scope/missing-pee
 
 describe('the scope registry', () => {
   it('names every scope and has an extractor for each', () => {
-    expect([...SCOPE_NAMES].sort()).toEqual([
+    expect([...SCOPE_NAMES].toSorted()).toEqual([
       'comments',
       'html',
       'markdown',

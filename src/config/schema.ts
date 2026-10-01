@@ -174,6 +174,8 @@ function validateRule(value: unknown, index: number, problems: string[]): void {
       problems.push(`${name}.pattern must be a string.`);
     } else {
       try {
+        // Built for its throw alone: compiling is the only complete validity check.
+        // oxlint-disable-next-line no-new
         new RegExp(value['pattern'] as string, 'gu');
       } catch (cause) {
         problems.push(`${name}.pattern is not a valid regular expression: ${String(cause)}`);

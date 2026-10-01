@@ -247,5 +247,5 @@ export async function scan(options: ScanOptions): Promise<Finding[]> {
     }
   });
 
-  return perFile.flat().sort(byPosition);
+  return perFile.flat().toSorted(byPosition);
 }

@@ -110,5 +110,5 @@ export function peersForScopes(scopes: Iterable<Scope>): string[] {
   for (const scope of scopes) {
     for (const peer of REGISTRY[scope].peers) needed.add(peer);
   }
-  return [...needed].sort();
+  return [...needed].toSorted();
 }
