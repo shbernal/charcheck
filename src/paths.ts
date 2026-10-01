@@ -27,3 +27,27 @@ export function relativeToRoot(root: string, file: string): string {
 export function restrictionPath(root: string, file: string): string {
   return relativeToRoot(root, file).replace(/\/+$/, '');
 }
+
+/**
+ * Whether a path relative to some root climbs out of it: `..` or anything below it, or a
+ * path that is absolute and so was never relative to the root at all. Read as POSIX, which
+ * is how a glob and a finding's `file` are both spelled.
+ */
+export function escapesRoot(relative: string): boolean {
+  const normal = path.posix.normalize(toPosix(relative));
+  return (
+    path.posix.isAbsolute(normal) ||
+    path.win32.isAbsolute(normal) ||
+    normal === '..' ||
+    normal.startsWith('../')
+  );
+}
+
+/**
+ * Whether a file, absolute or relative to the root, lies strictly below it. Decided from the
+ * resolved path rather than the string, so `docs/../../x` is caught as readily as `../x`.
+ */
+export function isInsideRoot(root: string, file: string): boolean {
+  const relative = path.relative(root, path.resolve(root, file));
+  return relative.length > 0 && !escapesRoot(relative);
+}

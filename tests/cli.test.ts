@@ -438,6 +438,28 @@ describe('--fix', () => {
   });
 });
 
+describe('a config reaching outside its own directory', () => {
+  it('is rejected before anything is read or written', async () => {
+    const outside = await mkdtemp(path.join(os.tmpdir(), 'charcheck-outside-'));
+    try {
+      await writeFile(path.join(outside, 'x.md'), `a ${EM_DASH} b\n`, 'utf8');
+      const relative = path.relative(root, outside).replaceAll('\\', '/');
+      await write(
+        'charcheck.config.json',
+        JSON.stringify({
+          rules: [{ id: 'esc', chars: [EM_DASH], fix: '-', include: [`${relative}/*.md`] }],
+        }),
+      );
+      const result = await cli(['--fix']);
+      expect(result.code).toBe(EXIT_USAGE);
+      expect(result.err).toContain('rule "esc" has include pattern');
+      expect(await readFile(path.join(outside, 'x.md'), 'utf8')).toBe(`a ${EM_DASH} b\n`);
+    } finally {
+      await rm(outside, { recursive: true, force: true });
+    }
+  });
+});
+
 /**
  * A replacement is arbitrary text, so it can hold exactly what another rule bans. One pass
  * therefore settles nothing, and the run keeps fixing and re-scanning until the tree stops

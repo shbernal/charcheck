@@ -51,6 +51,11 @@ export interface ScanOutcome {
    */
   converged: boolean;
   /**
+   * Files `--fix` would have written and refused to, for lying outside the config's
+   * directory. Already said as each was refused; carried up so the run is not a pass.
+   */
+  refused: string[];
+  /**
    * Which files this run was allowed to look at, for stale baseline entries. Only a run
    * that could have seen a file can say its finding is gone. `scan()` does not report the
    * files it read, and asking it to would mean a callback on the frozen `ScanOptions`; the
@@ -113,7 +118,13 @@ async function scanAndFix(options: {
    * decide before the first pass writes anything.
    */
   fixpoint?: (found: readonly Finding[]) => Promise<FixpointOptions>;
-}): Promise<{ findings: Finding[]; fixedCount: number; converged: boolean; files: string[] }> {
+}): Promise<{
+  findings: Finding[];
+  fixedCount: number;
+  converged: boolean;
+  files: string[];
+  refused: string[];
+}> {
   const { scanOptions, root, fix, warn, suppressed, fixpoint } = options;
 
   const rescan = async (): Promise<Finding[]> => {
@@ -123,7 +134,7 @@ async function scanAndFix(options: {
 
   const findings = await scan(scanOptions);
   if (!fix || !findings.some(isFixable)) {
-    return { findings, fixedCount: 0, converged: true, files: [] };
+    return { findings, fixedCount: 0, converged: true, files: [], refused: [] };
   }
 
   const outcome = await fixToFixpoint(
@@ -138,6 +149,7 @@ async function scanAndFix(options: {
     fixedCount: outcome.fixed,
     converged: outcome.converged,
     files: outcome.files,
+    refused: outcome.refused,
   };
 }
 
@@ -163,7 +175,7 @@ export async function runTree(
           `intersected with each rule's include globs, never substituted for them.`,
       ),
   };
-  const { findings, fixedCount, converged } = await scanAndFix({
+  const { findings, fixedCount, converged, refused } = await scanAndFix({
     scanOptions,
     root: scanOptions.root,
     fix: options.fix,
@@ -183,7 +195,15 @@ export async function runTree(
           paths: options.paths.map((file) => restrictionPath(scanOptions.root, file)),
         }
       : { kind: 'all' };
-  return { findings, suppressed: sortFindings(suppressed), sources, fixedCount, converged, scope };
+  return {
+    findings,
+    suppressed: sortFindings(suppressed),
+    sources,
+    fixedCount,
+    converged,
+    refused,
+    scope,
+  };
 }
 
 /**
@@ -226,6 +246,7 @@ export async function runCommitMsg(
     fixedCount: 0,
     // `--fix` is refused with `--commit-msg`, so nothing here can fail to settle.
     converged: true,
+    refused: [],
     // No file in the tree was read, and a message is not baselined in any case.
     scope: { kind: 'files', paths: [] },
   };
@@ -286,6 +307,7 @@ export async function runStaged(
       sources: new Map(),
       fixedCount: 0,
       converged: true,
+      refused: [],
       scope,
     };
   }
@@ -342,7 +364,7 @@ export async function runStaged(
     };
   };
 
-  const { findings, fixedCount, converged, files } = await scanAndFix({
+  const { findings, fixedCount, converged, files, refused } = await scanAndFix({
     scanOptions,
     root: configRoot,
     fix: options.fix,
@@ -363,6 +385,7 @@ export async function runStaged(
     sources: await sourcesFor(findings, scanOptions.read),
     fixedCount,
     converged,
+    refused,
     scope,
   };
 }

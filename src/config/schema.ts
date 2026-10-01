@@ -1,3 +1,4 @@
+import { escapesRoot } from '../paths.js';
 import { SCOPE_NAMES, scopeExtensions } from '../scope/index.js';
 import type { Rule, Scope, Severity } from '../types.js';
 import type { CharcheckConfig } from './types.js';
@@ -102,6 +103,44 @@ function checkScopeAgainstPatterns(rule: Rule, label: string, problems: string[]
   }
 }
 
+/**
+ * The part of a glob that names a place rather than a set of names: every segment before the
+ * first one holding a glob character. `../pkg/**\/*.md` is `../pkg`, `**\/*.md` is empty.
+ */
+function literalPrefix(pattern: string): string {
+  const segments = pattern.split('/');
+  const magic = segments.findIndex((segment) => /[*?[\]{}()!+@]/.test(segment));
+  return segments.slice(0, magic === -1 ? segments.length : magic).join('/');
+}
+
+/**
+ * An include pattern that reaches outside the config's directory is a config error.
+ *
+ * `--fix` writes whatever the globs reach, with no confirmation and no dry run, so a pattern
+ * written relative to the wrong directory quietly rewrites a sibling package, or the home
+ * directory of a config one level down. Its findings would also carry a `../` path, which
+ * neither a baseline nor a SARIF consumer can place.
+ *
+ * Decided from the pattern's literal prefix, which is where a glob says where it starts. A
+ * negated pattern only takes files away and is passed over. The write itself is guarded
+ * separately in `fixFiles`, so this is the good error message rather than the guarantee.
+ */
+function checkPatternsInsideRoot(rule: Rule, label: string, problems: string[]): void {
+  if (!Array.isArray(rule.include)) return;
+
+  for (const pattern of rule.include) {
+    if (typeof pattern !== 'string' || VIRTUAL_PATTERN.test(pattern)) continue;
+    if (pattern.startsWith('!')) continue;
+    if (!escapesRoot(literalPrefix(pattern))) continue;
+
+    problems.push(
+      `${label} has include pattern "${pattern}", which reaches outside the config's ` +
+        `directory. charcheck only checks and fixes files below it; move the config up, or ` +
+        `give that directory a config of its own.`,
+    );
+  }
+}
+
 function validateRule(value: unknown, index: number, problems: string[]): void {
   const label = `rules[${index}]`;
   if (!isRecord(value)) {
@@ -174,6 +213,7 @@ function validateRule(value: unknown, index: number, problems: string[]): void {
   // `problems` accumulates across every rule, so it can say nothing about this one.
   if (typeof id === 'string') {
     checkScopeAgainstPatterns(value as unknown as Rule, name, problems);
+    checkPatternsInsideRoot(value as unknown as Rule, name, problems);
   }
 }
 

@@ -7,10 +7,15 @@
  * tree. See `tests/git.test.ts` for that path end to end.
  */
 
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import { BYTE_ORDER_MARK, EM_DASH, charClass } from '../src/chars.js';
 import { applyFixes } from '../src/fix.js';
+import { fixFiles } from '../src/fix-files.js';
 import type { SkipReason } from '../src/fix.js';
 import { scanText } from '../src/scan.js';
 import type { Finding } from '../src/types.js';
@@ -99,5 +104,35 @@ describe('overlapping findings', () => {
     expect(skipped[0]![1]).toBe('overlap');
     // The wider span is the one dropped, since the fixer works right to left.
     expect(skipped[0]![0].ruleId).toBe('spaced');
+  });
+});
+
+describe('a finding that names a file outside the root', () => {
+  it('is refused, said, and returned as refused rather than written', async () => {
+    const base = await mkdtemp(path.join(os.tmpdir(), 'charcheck-guard-'));
+    try {
+      const root = path.join(base, 'proj');
+      await mkdir(root);
+      await writeFile(path.join(base, 'x.md'), `a ${EM_DASH} b\n`, 'utf8');
+      await writeFile(path.join(root, 'in.md'), `a ${EM_DASH} b\n`, 'utf8');
+      const [outside, inside] = await Promise.all(
+        ['../x.md', 'in.md'].map(async (file) => {
+          const [finding] = await scanText(`a ${EM_DASH} b\n`, file, [
+            rule({ id: 'no-em-dash', fix: '-' }),
+          ]);
+          return finding!;
+        }),
+      );
+
+      const warnings: string[] = [];
+      const outcome = await fixFiles(root, [outside!, inside!], (m) => warnings.push(m));
+
+      expect(outcome).toEqual({ fixed: 1, files: ['in.md'], refused: ['../x.md'] });
+      expect(warnings.join('\n')).toContain('not fixing ../x.md');
+      expect(await readFile(path.join(base, 'x.md'), 'utf8')).toBe(`a ${EM_DASH} b\n`);
+      expect(await readFile(path.join(root, 'in.md'), 'utf8')).toBe('a - b\n');
+    } finally {
+      await rm(base, { recursive: true, force: true });
+    }
   });
 });

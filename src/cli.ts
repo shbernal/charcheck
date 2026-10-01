@@ -215,6 +215,12 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
   if (skipped.size > 0) {
     warn(`${plural(skipped.size, 'file')} could not be scanned. This run is not a pass.`);
   }
+  if (outcome.refused.length > 0) {
+    warn(
+      `${plural(outcome.refused.length, 'file')} outside the config's directory left ` +
+        `unfixed. This run is not a pass.`,
+    );
+  }
 
   const errors = findings.filter((finding) => finding.severity === 'error').length;
   const warnings = findings.length - errors;
@@ -242,15 +248,15 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
   }
   if (staleFails) return EXIT_FINDINGS;
   // An unfinished run: the fixes never settled, so the tree holds one arbitrary side of an
-  // argument between two rules, or a file a rule targets was never looked at. Both are
-  // config problems in the same sense, and both were already said on stderr at the point
-  // they happened. What this adds is that a run whose remaining findings are warnings, or
+  // argument between two rules, a file a rule targets was never looked at, or a fix was
+  // refused for landing outside the config's directory. All three are config problems in
+  // the same sense, and each was already said on stderr at the point it happened. What this adds is that a run whose remaining findings are warnings, or
   // none, still cannot be reported as clean.
   //
   // Reached only when nothing above failed, which is the precedence: a finding is the more
   // actionable of the two answers, so it takes the exit code and the warnings explain the
   // rest.
-  if (!outcome.converged || skipped.size > 0) return EXIT_USAGE;
+  if (!outcome.converged || skipped.size > 0 || outcome.refused.length > 0) return EXIT_USAGE;
   return EXIT_OK;
 }
 

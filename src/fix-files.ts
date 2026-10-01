@@ -2,6 +2,7 @@ import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { applyFixes } from './fix.js';
+import { isInsideRoot } from './paths.js';
 import { readTextFile } from './read.js';
 import { groupByFile } from './report/summary.js';
 import type { Finding } from './types.js';
@@ -10,6 +11,8 @@ export interface FixOutcome {
   /** Findings actually rewritten. */
   fixed: number;
   files: string[];
+  /** Files with fixable findings that lie outside the root, and so were never written. */
+  refused: string[];
 }
 
 /**
@@ -35,6 +38,7 @@ export async function fixFiles(
   onWarning?: (message: string) => void,
 ): Promise<FixOutcome> {
   const files: string[] = [];
+  const refused: string[] = [];
   let fixed = 0;
 
   for (const [file, forFile] of groupByFile(findings)) {
@@ -43,7 +47,18 @@ export async function fixFiles(
     const fixable = forFile.filter(isFixable);
     if (fixable.length === 0) continue;
 
-    const absolute = path.join(root, file);
+    // Config load rejects a glob that climbs out of the root, but a finding is just data and
+    // can name any path. This is the check that holds whatever produced it.
+    if (!isInsideRoot(root, file)) {
+      onWarning?.(
+        `not fixing ${file}: it is outside ${root}, and --fix writes only below the ` +
+          `config's directory.`,
+      );
+      refused.push(file);
+      continue;
+    }
+
+    const absolute = path.resolve(root, file);
     const outcome = await readTextFile(absolute);
     if (!outcome.ok) {
       onWarning?.(`cannot fix ${file}: ${outcome.reason}`);
@@ -77,7 +92,7 @@ export async function fixFiles(
     fixed += fixable.length - skipped;
   }
 
-  return { fixed, files };
+  return { fixed, files, refused };
 }
 
 /**
@@ -98,6 +113,8 @@ export interface FixpointOutcome {
   files: string[];
   /** False when the passes ran out with fixable findings still standing. */
   converged: boolean;
+  /** Every file `fixFiles` refused to write for lying outside the root, each named once. */
+  refused: string[];
 }
 
 export interface FixpointOptions {
@@ -142,18 +159,23 @@ export async function fixToFixpoint(
 ): Promise<FixpointOutcome> {
   const { hold, afterPass } = options;
   const written = new Set<string>();
+  const refused = new Set<string>();
   let current = [...findings];
   let fixed = 0;
 
   // What this run is willing to write, as opposed to what it found. A held file's fixable
   // finding must not keep the loop alive either: nothing intends to write it, so it would
   // spin to the cap and report an oscillation that is not happening.
+  //
+  // A file refused once is refused on every pass, and is left out after the first so it is
+  // said once and cannot keep the loop alive for the same reason.
   const writable = (all: readonly Finding[]): Finding[] =>
-    hold === undefined || hold.size === 0 ? [...all] : all.filter((f) => !hold.has(f.file));
+    all.filter((f) => !hold?.has(f.file) && !refused.has(f.file));
 
   for (let pass = 1; ; pass += 1) {
     const outcome = await fixFiles(root, writable(current), onWarning);
     fixed += outcome.fixed;
+    for (const file of outcome.refused) refused.add(file);
     // Nothing was written, so a re-scan could only return the findings already in hand.
     // This is the ordinary exit: the first pass fixes what it can and the second finds
     // nothing left to write.
@@ -171,9 +193,15 @@ export async function fixToFixpoint(
           `last pass wrote, which is one side of that argument rather than a settled result. ` +
           `This run is not a pass.`,
       );
-      return { findings: current, fixed, files: [...written], converged: false };
+      return {
+        findings: current,
+        fixed,
+        files: [...written],
+        converged: false,
+        refused: [...refused],
+      };
     }
   }
 
-  return { findings: current, fixed, files: [...written], converged: true };
+  return { findings: current, fixed, files: [...written], converged: true, refused: [...refused] };
 }

@@ -122,6 +122,23 @@ describe('config validation', () => {
     expect(problems.join('\n')).toContain('duplicate rule id "same"');
   });
 
+  it('rejects an include pattern that climbs out of the config directory', () => {
+    const outside = ['../outside/**/*.md', 'docs/../../x.md', '/etc/**', '..'];
+    for (const pattern of outside) {
+      const problems = problemsOf(() =>
+        validateConfig({ rules: [{ id: 'esc', chars: [EM_DASH], include: [pattern] }] }),
+      );
+      expect(problems.join('\n')).toContain(`rule "esc" has include pattern "${pattern}"`);
+    }
+  });
+
+  it('accepts patterns that stay inside it, however they are spelled', () => {
+    const inside = ['**/*.md', './docs/**', 'docs/../src/*.ts', '!../x/**', '<commit-msg>'];
+    expect(
+      validateConfig({ rules: [{ id: 'in', chars: [EM_DASH], include: inside }] }).rules,
+    ).toHaveLength(1);
+  });
+
   it('reports every problem at once', () => {
     const problems = problemsOf(() =>
       validateConfig({ rules: [{ id: '', include: [] }, 'not an object'] }),

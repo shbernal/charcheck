@@ -42,6 +42,12 @@ export default defineConfig({
 | `markup`         | `object`            | The former home of `textAttributes`, kept working because it shipped. Prefer the top-level key; setting both is a config error rather than a silent precedence rule.                               |
 | `baseline`       | `string \| boolean` | Record the findings the repository already has and fail only on new ones. `true` means `charcheck-baseline.json` beside this file; a string is a path relative to it. See [Baseline](baseline.md). |
 
+Globs resolve against the config's directory and must stay below it. An `include` pattern
+that starts outside it, such as `../shared/**/*.md` or an absolute path, is a config error,
+and `--fix` refuses to write any file outside that directory whatever produced the finding.
+A monorepo package that wants a sibling checked gives the sibling a config of its own, or
+moves the config up to the directory both share.
+
 `node_modules` and `.git` are always ignored. Dotted directories are only scanned when a
 pattern names them, so a rule meant to cover `.github/` needs a glob that says so, and a
 dotted scratch directory needs no `ignore` entry to stay out.

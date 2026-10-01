@@ -9,6 +9,17 @@ against every entry that does. A patch release does not.
 
 ## [Unreleased]
 
+### Changed
+
+- **An `include` pattern that reaches outside the config's directory is now a config error,
+  and `--fix` will not write outside that directory.** Such a pattern was accepted before,
+  and `--fix` rewrote whatever it reached with nothing in the output to say a file outside
+  the project had been touched. The realistic case is a monorepo package whose glob was
+  written relative to the wrong directory. This rejects a config that used to load, which
+  is a behavior change, though it is the one `SECURITY.md` already promised. A config that
+  meant to reach a sibling should move up to the directory both share. The write site
+  refuses independently of the config check, warns, and fails the run.
+
 ## [0.4.0]
 
 ### Added
