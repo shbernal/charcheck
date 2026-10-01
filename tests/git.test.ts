@@ -404,3 +404,20 @@ describe('commit message preparation', () => {
     expect(masked.split('\n')[2]!.trim()).toBe('');
   });
 });
+
+/**
+ * This repository's own hooks, which are how `--staged` and `--commit-msg` get exercised by
+ * hand. Git skips a hook that is not executable and says so only in a hint, so a mode lost
+ * to a checkout or a copy turns them off with nothing failing.
+ */
+describe("this repository's hooks", () => {
+  it('are committed executable', async () => {
+    const { stdout } = await exec('git', ['ls-files', '-s', '.githooks']);
+    const modes = stdout
+      .trim()
+      .split('\n')
+      .map((line) => line.split(/\s+/)[0]);
+    expect(modes.length).toBeGreaterThan(0);
+    expect(modes.every((mode) => mode === '100755')).toBe(true);
+  });
+});
