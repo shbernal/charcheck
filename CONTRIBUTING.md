@@ -12,6 +12,8 @@ pnpm install
 
 Node 24 or newer, and pnpm through Corepack. The node floor buys native type stripping,
 which is what lets a user's `charcheck.config.ts` load with no bundler and no loader.
+`.nvmrc` names that floor, and `@types/node` stays on the same major so the compiler
+rejects an API the oldest supported Node does not have. Do not bump it past the floor.
 
 ## The one gate
 

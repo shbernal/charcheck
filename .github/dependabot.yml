@@ -32,6 +32,11 @@ updates:
       # so a new 7.x for `typescript-next` or 5.x for `typescript-floor` will not open a pull
       # request on its own, and the ignore above is a guard rather than a promise of updates.
 
+      # Matches the `engines` floor, so the compiler rejects an API Node 24 does not have.
+      # Moves only when the floor does.
+      - dependency-name: '@types/node'
+        versions: ['>=25']
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
