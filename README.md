@@ -1,102 +1,128 @@
+<div align="center">
+
 # charcheck
 
-[![CI](https://github.com/shbernal/charcheck/actions/workflows/ci.yml/badge.svg)](https://github.com/shbernal/charcheck/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/charcheck)](https://www.npmjs.com/package/charcheck)
-[![node](https://img.shields.io/badge/node-%3E%3D24-brightgreen)](https://nodejs.org)
-[![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+Ban a character once, check it in code, prose, components and commit messages.
 
-Flag banned characters, em dashes first and invisibles next, in _targeted_ parts of a repo,
-driven by one config, reachable from a package script, a pre-commit hook, and a commit-msg
-hook.
+[![npm][npm-badge]][npm]
+[![CI][ci-badge]][ci]
+[![Node][node-badge]][node]
+[![License][license-badge]][license]
 
-## Why this exists
+---
 
-Every existing tool sees one surface. ESLint plugins see the JavaScript AST and nothing
-else. Prose linters see Markdown and nothing else. Commit messages have nothing at all. So
-banning one character across a repo means three tools, three configs, and a gap where the
-commit message goes.
+<a href="#install"><kbd>&nbsp;<br>&nbsp;&nbsp;Install&nbsp;&nbsp;<br>&nbsp;</kbd></a>
+<a href="#quickstart"><kbd>&nbsp;<br>&nbsp;&nbsp;Quickstart&nbsp;&nbsp;<br>&nbsp;</kbd></a>
+<a href="#how-it-works"><kbd>&nbsp;<br>&nbsp;&nbsp;How it works&nbsp;&nbsp;<br>&nbsp;</kbd></a>
+<a href="docs/README.md"><kbd>&nbsp;<br>&nbsp;&nbsp;Docs&nbsp;&nbsp;<br>&nbsp;</kbd></a>
 
-charcheck covers all three from one banned-character list, and lets each surface have its
-own policy. That is the whole idea:
+---
 
-```js
-// charcheck.config.js
-const DASHES = ['\u2014', '\u2015']; // em dash, horizontal bar
+</div>
 
-export default {
-  rules: [
-    {
-      // Prose: the whole file, comments included.
-      id: 'no-em-dash-in-prose',
-      chars: DASHES,
-      fix: '-',
-      include: ['README.md', 'docs/**/*.md'],
-    },
-    {
-      // Code: only text that can render. Comments are exempt on purpose.
-      id: 'no-em-dash-in-rendered-text',
-      chars: DASHES,
-      scope: 'strings',
-      include: ['src/**/*.ts', 'site/.vitepress/config.ts'],
-    },
-    {
-      // Components: template text and allowlisted attributes. Styles exempt.
-      id: 'no-em-dash-on-the-page',
-      chars: DASHES,
-      scope: 'markup',
-      include: ['site/**/*.vue'],
-    },
-    {
-      id: 'no-em-dash-in-commit-msg',
-      chars: DASHES,
-      include: ['<commit-msg>'],
-    },
-  ],
-};
-```
+![charcheck flagging an em dash in Markdown, a string literal and a commit message, then fixing the Markdown one](https://raw.githubusercontent.com/shbernal/charcheck/main/assets/demo/demo.gif)
 
-One character list, four surfaces, opposite policies about comments.
+charcheck flags banned characters, like em dashes and zero width spaces, in the parts of a
+repo you point it at.
+One config drives the package script, the pre-commit hook and the commit-msg hook.
+Each rule picks which files it reads and which part of each file it may match inside.
+
+- Scopes that read only string literals, only comments, only Markdown prose, or only the
+  rendered text of a Vue or HTML file.
+- `--staged` reads the git index, so unstaged edits never fail a commit.
+- `--commit-msg` checks the message itself, skipping comment lines and the scissors.
+- `--fix` rewrites what a rule knows how to replace and reports the rest.
+- A baseline file, so a repo that is not at zero can still go green.
+- Pretty, JSON and SARIF output.
+
+## Why this project?
+
+Each existing tool sees one surface.
+ESLint plugins see the JavaScript AST, prose linters see Markdown, and nothing checks commit
+messages.
+Banning one character across a repo used to mean three tools, three configs, and a gap
+where the commit message goes.
+
+| Tool                                                                                                | Reads                                        | Pick it when                                                  |
+| --------------------------------------------------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------- |
+| charcheck                                                                                           | Code, comments, Markdown, Vue, HTML, commits | One character list should hold everywhere, per-surface policy |
+| [eslint-plugin-em-dash-checker](https://www.npmjs.com/package/eslint-plugin-em-dash-checker)        | JavaScript string literals                   | Your text lives only in code and you already run ESLint       |
+| [textlint](https://textlint.github.io/) + [prh](https://github.com/textlint-rule/textlint-rule-prh) | Prose files                                  | You want natural language rules, not just characters          |
+| [Vale](https://vale.sh/)                                                                            | Prose, with real style guides                | You want an editorial style guide enforced                    |
+| [slop-lint](https://www.npmjs.com/package/slop-lint)                                                | Vocabulary and characters                    | You want opinions about words too                             |
+
+charcheck has no word lists and won't get any.
+It is about characters.
 
 ## Install
+
+Requires Node 24 or newer, which loads a `charcheck.config.ts` with no bundler or loader.
 
 ```bash
 pnpm add -D charcheck
 ```
 
-Requires Node 24 or newer. That floor is deliberate: native type stripping is what lets a
-`charcheck.config.ts` load with no bundler, no loader, and no extra dependency.
+Scopes other than `raw` need a parser installed beside it, listed in
+[How it works](#how-it-works).
 
-## Use it
+## Quickstart
 
-Write a `charcheck.config.js` like the one above, then wire it to a script:
+1. Write `charcheck.config.js` at the repo root.
+   This one bans em dashes everywhere, with a different policy for each surface:
 
-```json
-{
-  "scripts": {
-    "lint:chars": "charcheck"
-  }
-}
+   ```js
+   const DASH = '—';
+
+   export default {
+     rules: [
+       { id: 'prose', chars: [DASH], fix: ',', scope: 'markdown', include: ['**/*.md'] },
+       { id: 'code', chars: [DASH], scope: 'strings', include: ['src/**/*.ts'] },
+       { id: 'pages', chars: [DASH], scope: 'markup', include: ['src/**/*.vue'] },
+       { id: 'commits', chars: [DASH], include: ['<commit-msg>'] },
+     ],
+   };
+   ```
+
+   Comments in `src/` stay free to use the dash, because the `strings` scope never reads
+   them.
+
+2. Add a script and run it:
+
+   ```json
+   { "scripts": { "lint:chars": "charcheck" } }
+   ```
+
+   ```bash
+   pnpm run lint:chars
+   ```
+
+3. Rewrite what the rules can fix, then read the diff:
+
+   ```bash
+   pnpm run lint:chars --fix
+   ```
+
+4. Call it from your git hooks.
+   The pre-commit hook runs `charcheck --staged` and the commit-msg hook runs
+   `charcheck --commit-msg "$1"`.
+   [Getting started](docs/getting-started.md) has the setup for lefthook, husky, plain
+   `.git/hooks` and CI.
+
+## How it works
+
+```mermaid
+flowchart LR
+  W[working tree] --> R
+  I["git index (--staged)"] --> R
+  M["commit message (--commit-msg)"] --> R
+  R["rule: include globs"] --> S["scope: the part of the file it may read"]
+  S --> X[match banned characters]
+  X --> O[report, or --fix]
 ```
 
-```bash
-pnpm run lint:chars          # scan
-pnpm run lint:chars --fix    # rewrite what is fixable, report the rest
-```
-
-To check what is actually being committed rather than what is on disk:
-
-```bash
-charcheck --staged                  # pre-commit, reads the git index
-charcheck --commit-msg "$1"         # commit-msg
-```
-
-Those two are the point of the tool, and they work under lefthook, husky, or two lines in
-`.git/hooks`. See [Getting started](docs/getting-started.md) for each.
-
-## What a rule can look inside
-
-A rule's `scope` decides which part of a file it may match inside. Getting this wrong fails
-silently, because a scan that reads nothing looks exactly like a scan that passed.
+A rule's `scope` decides which part of a file it may match inside.
+A wrong scope fails silently, because a scan that reads nothing looks like a scan that
+passed.
 
 | Scope           | Reads                                                  | Applies to             | Needs                             |
 | --------------- | ------------------------------------------------------ | ---------------------- | --------------------------------- |
@@ -107,93 +133,41 @@ silently, because a scan that reads nothing looks exactly like a scan that passe
 | `markdown`      | Prose, never fenced or inline code, never link targets | `.md`, `.markdown`     | `micromark`                       |
 | `html`          | Page text, allowlisted attributes, script literals     | `.html`, `.htm`        | `parse5`, `typescript`            |
 
-Every parser is an optional peer dependency, imported only when a rule uses the scope that
-needs it. A repo using only `raw` installs nothing extra. TypeScript 5, 6 and 7 all work:
-5 and 6 are read through the syntax tree, and 7, which ships no in-process parser, through
-its token scanner. The one thing that costs is JSX, which a scanner cannot read and which is
-therefore refused on 7. Details are in [Scopes](docs/scopes.md).
+Every parser is an optional peer dependency, imported only when a rule uses its scope.
+A repo using only `raw` installs nothing extra.
+TypeScript 5, 6 and 7 all work, except that 7 can't read JSX.
+[Scopes](docs/scopes.md) has the details.
 
-## Hit a bug? There is a skill for that
+## For agents
 
-Most configs here are written by an agent, and an agent that hits a charcheck defect does
-not see an error. It sees a pass. Nothing throws, nothing is logged, and the natural next
-move is to add an `exclude` glob and get on with the task, which silences the bug and the
-real findings underneath it at the same time. The defect is invisible unless something
-teaches it to look.
-
-`charcheck-upstream` is a skill for exactly that moment. It ships inside the package, so it
-is already on disk:
+An agent that hits a charcheck bug sees a pass, not an error, and tends to paper over it
+with an `exclude` glob.
+The package ships a `charcheck-upstream` skill that teaches it to triage the miss and file a
+real report:
 
 ```bash
-# Name the skill and the runtimes, and take the defaults: this is the form that
-# completes unattended, which is how an agent will be running it.
 npx skills add ./node_modules/charcheck -s '*' -a claude-code -a codex -a universal -y
-
-npx skills add shbernal/charcheck   # same flags, from the repo instead of node_modules
 ```
 
-Drop the flags for an interactive prompt if you are at a terminal yourself. Do not reach for
-`--all` to avoid the prompt: it installs into every runtime the CLI knows about, around
-seventy of them, and leaves an `agent/` directory at your repository root for runtimes
-nobody there uses. Name the ones you have. And the installed copy is a _copy_, so **a
-version bump does not update it**: re-run that command, or `npx skills update
-charcheck-upstream`, in the same commit as the bump.
+[Agent skill](docs/agent-skill.md) covers updating it and what `--report-issue` prints.
 
-Most of the skill is triage rather than filing, because a reproduction here is four lines of
-config and a string, so the cheap thing to do is exactly the thing that fills a tracker with
-non-bugs. Did the rule open the file, can its scope see that region, is it already in
-[Limitations](docs/limitations.md). What survives those is ours, and it gets filed with a
-reproduction that synthesizes its own input, since the flagged text is the user's own prose
-and a zero width character does not survive a clipboard anyway.
+## More
 
-Either way, `charcheck --report-issue` writes most of the report for you, including the one
-part a pasted config cannot show: every rule as it resolved, and how many files each one
-actually matched. Directory names in the globs are replaced before they are printed, so it
-runs unattended with nothing of your tree in the output. See
-[Command line](docs/cli.md#--report-issue).
+- [Getting started](docs/getting-started.md): scripts, hook managers and CI
+- [Scopes](docs/scopes.md): which part of a file a rule should read
+- [Configuration](docs/configuration.md): rules, fixes and suppression comments
+- [Command line](docs/cli.md): every flag and exit code
+- [Baseline](docs/baseline.md): adopting charcheck in a repo that is not at zero
+- [Programmatic API](docs/api.md): calling `scan` from a script or a test
+- [Presets](docs/presets.md): ready-made character lists
+- [Limitations](docs/limitations.md): what is not caught, on purpose or not yet
+- [Contributing](CONTRIBUTING.md) and [issues](https://github.com/shbernal/charcheck/issues)
 
-You do not need any of this to report something:
-<https://github.com/shbernal/charcheck/issues> is open.
-
-## Documentation
-
-| Page                                       | Read it when                                                          |
-| ------------------------------------------ | --------------------------------------------------------------------- |
-| [Getting started](docs/getting-started.md) | Wiring into scripts, hook managers, or CI                             |
-| [Scopes](docs/scopes.md)                   | Deciding what part of a file a rule should read                       |
-| [Configuration](docs/configuration.md)     | Writing rules, fixes, or suppression comments                         |
-| [Command line](docs/cli.md)                | Looking up a flag or an exit code                                     |
-| [Baseline](docs/baseline.md)               | Turning charcheck on in a repository that is not at zero              |
-| [Programmatic API](docs/api.md)            | Calling `scan` from a script or a test                                |
-| [Presets](docs/presets.md)                 | Reaching for a ready-made character list                              |
-| [Limitations](docs/limitations.md)         | Something is not caught and you want to know whether that is expected |
-
-## Prior art
-
-Worth knowing about before choosing this one:
-
-- [eslint-plugin-em-dash-checker](https://www.npmjs.com/package/eslint-plugin-em-dash-checker):
-  em dashes in JavaScript string literals, inside ESLint. If your text lives only in code
-  and you already run ESLint, that is a smaller dependency than this one.
-- [textlint](https://textlint.github.io/) with
-  [prh](https://github.com/textlint-rule/textlint-rule-prh): a mature prose linting
-  ecosystem, considerably more capable for natural language, scoped to prose files.
-- [Vale](https://vale.sh/): the serious prose linter, with real style guides. A separate
-  binary and a different kind of tool.
-- [slop-lint](https://www.npmjs.com/package/slop-lint): opinions about vocabulary as well
-  as characters. charcheck deliberately has none.
-
-charcheck exists for the case none of those cover: one banned-character list applied to
-code, prose, components and commit messages at once, with a different policy for each.
-
-**Core ships no vocabulary opinions and never will.** There is no "delve" list, no
-"leverage" list. This tool is about characters.
-
-## Contributing
-
-Bug reports and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the
-build, the single check gate, and the dogfooding rule that catches everyone once.
-
-## License
-
-[MIT](LICENSE)
+[npm]: https://www.npmjs.com/package/charcheck
+[npm-badge]: https://img.shields.io/npm/v/charcheck?style=for-the-badge&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHJlY3Qgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiByeD0iMS44IiBmaWxsPSIjQ0IzODM3Ii8+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTUuMTMgNS4zMjNsMTMuODM3LjAxOS0uMDA5IDEzLjgzNmgtMy40NjRsLjAxLTEwLjM4MmgtMy40NTZMMTIuMDQgMTkuMTdINS4xMTN6Ii8+PC9zdmc+&color=CB3837&labelColor=1a1b26
+[ci]: https://github.com/shbernal/charcheck/actions/workflows/ci.yml
+[ci-badge]: https://img.shields.io/github/actions/workflow/status/shbernal/charcheck/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=9ece6a&color=9ece6a&labelColor=1a1b26&label=CI
+[node]: https://nodejs.org
+[node-badge]: https://img.shields.io/badge/node-%E2%89%A5%2024-e0af68?style=for-the-badge&logo=nodedotjs&logoColor=e0af68&labelColor=1a1b26
+[license]: LICENSE
+[license-badge]: https://img.shields.io/github/license/shbernal/charcheck?style=for-the-badge&color=bb9af7&labelColor=1a1b26

@@ -29,4 +29,4 @@ twice with different targeting without an id collision.
 
 There is no "delve" list, no "leverage" list. This tool is about characters. Word choice is
 a different problem with different failure modes, and tools that do it well already exist;
-see the prior art section of the [README](../README.md).
+see the [comparison in the README](../README.md#why-this-project).

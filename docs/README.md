@@ -12,6 +12,7 @@ These pages are the full reference.
 | [Baseline](baseline.md)               | Turning charcheck on in a repository that is not at zero                                |
 | [Programmatic API](api.md)            | Calling charcheck from a script or a test instead of the CLI                            |
 | [Presets](presets.md)                 | Reaching for a ready-made character list                                                |
+| [Agent skill](agent-skill.md)         | Installing the `charcheck-upstream` skill, or filing a bug with `--report-issue`        |
 | [Limitations](limitations.md)         | Something is not being caught and you want to know whether that is expected             |
 
 ## The one thing worth reading first
