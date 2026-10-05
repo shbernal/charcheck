@@ -2,7 +2,7 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/banner/banner-dark.svg">
-  <img alt="charcheck: ban a character once, check it in code, prose, components and commit messages" src="assets/banner/banner-light.svg" width="100%">
+  <img alt="charcheck: ban a character once, catch it everywhere" src="assets/banner/banner-light.svg" width="100%">
 </picture>
 
 [![npm][npm-badge]][npm]

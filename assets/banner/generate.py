@@ -32,7 +32,7 @@ GX, GY = (W - COLS * CELL) // 2, (H - ROWS * CELL) // 2
 # The merged cell that holds the wordmark, in grid coordinates (inclusive).
 PANEL = (1, 1, 17, 5)  # col0, row0, col1, row1
 
-TAGLINE = "Ban a character once, check it in code, prose, components and commit messages."
+TAGLINE = "Ban a character once, catch it everywhere."
 
 # The repo's own banned set (charcheck.config.js): dashes and invisibles.
 BANNED = {0x2014, 0x2015, 0x00AD, 0x200B, 0x200C, 0x200D, 0x200E, 0x200F, 0x2060}
@@ -254,7 +254,7 @@ def build(theme):
     pad = 30
     word_size = (pw - 2 * pad) / (len("charcheck") * ADV / 1000)
     word = g.text("charcheck", px + pad - 4, py + 118, word_size, font=BOLD)
-    tag = g.text(TAGLINE, px + pad, py + 164, (pw - 2 * pad) / (len(TAGLINE) * ADV / 1000))
+    tag = g.text(TAGLINE, px + pad, py + 170, (pw - 2 * pad) / (len(TAGLINE) * ADV / 1000))
 
     scan_w = 120
     css = f"""
