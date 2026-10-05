@@ -1,8 +1,9 @@
 <div align="center">
 
-# charcheck
-
-Ban a character once, check it in code, prose, components and commit messages.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/banner/banner-dark.svg">
+  <img alt="charcheck: ban a character once, check it in code, prose, components and commit messages" src="assets/banner/banner-light.svg" width="100%">
+</picture>
 
 [![npm][npm-badge]][npm]
 [![CI][ci-badge]][ci]
@@ -20,7 +21,10 @@ Ban a character once, check it in code, prose, components and commit messages.
 
 </div>
 
-![charcheck flagging an em dash in Markdown, a string literal and a commit message, then fixing the Markdown one](https://raw.githubusercontent.com/shbernal/charcheck/main/assets/demo/demo.gif)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/visuals/terminal/terminal-dark.svg">
+  <img alt="charcheck flagging an em dash in Markdown, a zero width space and an em dash in a string literal, fixing the Markdown one, then flagging an em dash in a commit message" src="assets/visuals/terminal/terminal-light.svg" width="100%">
+</picture>
 
 charcheck flags banned characters, like em dashes and zero width spaces, in the parts of a
 repo you point it at.
@@ -108,6 +112,11 @@ Scopes other than `raw` need a parser installed beside it, listed in
    [Getting started](docs/getting-started.md) has the setup for lefthook, husky, plain
    `.git/hooks` and CI.
 
+   <picture>
+     <source media="(prefers-color-scheme: dark)" srcset="assets/visuals/hooks/hooks-dark.svg">
+     <img alt="One charcheck.config.js drives the package script, the pre-commit hook, which reads the git index and ignores unstaged edits, and the commit-msg hook, which skips comment lines and the scissors" src="assets/visuals/hooks/hooks-light.svg" width="100%">
+   </picture>
+
 ## How it works
 
 ```mermaid
@@ -123,6 +132,11 @@ flowchart LR
 A rule's `scope` decides which part of a file it may match inside.
 A wrong scope fails silently, because a scan that reads nothing looks like a scan that
 passed.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/visuals/scopes/scopes-dark.svg">
+  <img alt="The same TypeScript and Markdown files under each scope: raw flags every em dash, comments and strings flag only the ones in comments or literals, markdown flags only the one in prose" src="assets/visuals/scopes/scopes-light.svg" width="100%">
+</picture>
 
 | Scope           | Reads                                                  | Applies to             | Needs                             |
 | --------------- | ------------------------------------------------------ | ---------------------- | --------------------------------- |
