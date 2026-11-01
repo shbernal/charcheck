@@ -96,7 +96,7 @@
     "@vue/compiler-sfc": "^3.5.43",
     "knip": "^6.39.0",
     "micromark": "^4.0.3",
-    "oxfmt": "^0.71.0",
+    "oxfmt": "^0.75.0",
     "oxlint": "^1.86.0",
     "parse5": "^8.0.1",
     "typescript": "^6.0.3",
