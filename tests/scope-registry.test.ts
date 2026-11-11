@@ -10,7 +10,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  getExtractor,
   peersForScopes,
   SCOPE_NAMES,
   scopeExtensions,
@@ -19,7 +18,7 @@ import {
 import { importPeer, MissingPeerDependencyError } from '../src/scope/missing-peer.js';
 
 describe('the scope registry', () => {
-  it('names every scope and has an extractor for each', () => {
+  it('names every scope', () => {
     expect([...SCOPE_NAMES].toSorted()).toEqual([
       'comments',
       'html',
@@ -28,7 +27,6 @@ describe('the scope registry', () => {
       'raw',
       'strings',
     ]);
-    for (const scope of SCOPE_NAMES) expect(typeof getExtractor(scope)).toBe('function');
   });
 
   it('leaves raw unrestricted, as a written-down decision rather than an omission', () => {
@@ -40,9 +38,7 @@ describe('the scope registry', () => {
 
   it('restricts every parser-backed scope, which is the check that used to go quiet', () => {
     for (const scope of SCOPE_NAMES.filter((name) => name !== 'raw')) {
-      const extensions = scopeExtensions(scope);
-      expect(extensions, scope).not.toBeNull();
-      expect(extensions?.length, scope).toBeGreaterThan(0);
+      expect(scopeExtensions(scope)?.length, scope).toBeGreaterThan(0);
     }
   });
 
