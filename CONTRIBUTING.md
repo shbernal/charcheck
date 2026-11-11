@@ -98,6 +98,12 @@ which is how the docs show the syntax and still get checked.
 - Update `docs/` when behavior, config, or the CLI changes, and add a line to
   `CHANGELOG.md` under `Unreleased`.
 - Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/).
+- Say in the pull request which harness and model wrote it (for example "Claude Code,
+  Claude Opus 5.5"), or that you wrote it yourself. The template asks for it.
+- Commit messages carry no AI attribution: no `Co-authored-by:` trailer for a tool, no
+  "Generated with" line. CI rejects a commit that has one, so turn your harness's commit
+  attribution off. A squash merge builds its message from the commits, not from the pull
+  request description, which keeps the disclosure off `main`.
 
 ## Releasing
 
